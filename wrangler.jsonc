@@ -9,5 +9,8 @@
   // Serve the site on *.workers.dev, and give every non-production build its
   // own preview link (Cloudflare posts it on the pull request).
   "workers_dev": true,
-  "preview_urls": true
+  "preview_urls": true,
+  // Required by `wrangler preview`, the command Cloudflare's preview builds run.
+  // Empty means previews use the same settings as above.
+  "previews": {}
 }
