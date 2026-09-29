@@ -74,5 +74,5 @@ build command and root directory. Every push to another branch then gets its own
 ## Ideas for later
 
 - Per-psalm authors (David, Asaph, the sons of Korah, Moses…) instead of "David" for the whole book.
-- Better summaries (for example, an LLM summarising the full commentary text).
-- Make it installable on phones and work offline.
+- Better summaries (for example, probably don't want an LLM summarising the full commentary text though).
+- Make it installable on phones and work offline (bubblewrap or native app?)
