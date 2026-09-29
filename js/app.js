@@ -3,7 +3,7 @@
 //   #/search         search
 //   #/me[/tab]       your saved / liked / commented posts
 //   #/u/<handle>[/BOOK]  an author's profile, optionally filtered to one book
-import { BOOKS, handle, randomChapter } from './books.js';
+import { ALL_AUTHORS, handle, randomChapter, randomFromWorks, worksOf } from './books.js';
 import { getChapter } from './bible.js';
 import * as activity from './activity.js';
 import { closeDetail, renderPost, skeletonHtml } from './post.js';
@@ -16,14 +16,14 @@ const feedView = document.getElementById('feed-view');
 const feed = document.getElementById('feed');
 const sentinel = document.getElementById('sentinel');
 const topbarBack = document.getElementById('topbar-back');
-const authorByHandle = new Map(BOOKS.map((b) => [handle(b.author), b.author]));
+const authorByHandle = new Map(ALL_AUTHORS.map((a) => [handle(a), a]));
 
 // ---------- feed ----------
 
 // Half the feed comes from authors you follow, if you follow anyone.
 function pickChapter() {
   const follows = activity.following();
-  if (follows.size && Math.random() < 0.5) return randomChapter(BOOKS.filter((b) => follows.has(b.author)));
+  if (follows.size && Math.random() < 0.5) return randomFromWorks([...follows].flatMap(worksOf));
   return randomChapter();
 }
 
@@ -68,7 +68,7 @@ new IntersectionObserver((entries) => {
 
 function renderStories() {
   const follows = activity.following();
-  const authors = [...new Set(BOOKS.map((b) => b.author))]
+  const authors = [...ALL_AUTHORS]
     .filter((a) => a !== 'Unknown')
     .sort((a, b) => follows.has(b) - follows.has(a));
   document.getElementById('stories').innerHTML = authors

@@ -353,3 +353,7 @@ a.highlight .avatar { --size: 60px; font-size: 20px; margin: 0 auto 4px; display
 
 /* Author profiles have no tab bar; separate the grid from the header instead. */
 #profile-grid { border-top: 1px solid var(--border); padding-top: 2px; }
+
+/* Years since it was written, next to the poster's name. */
+.post-meta .dot { color: var(--muted); margin: 0 4px; }
+.post-meta .age { color: var(--muted); }

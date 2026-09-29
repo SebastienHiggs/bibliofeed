@@ -8,7 +8,9 @@ A photo-feed style web app where every post is a random Bible verse from the pub
 - **Comments**: short summaries of public-domain commentaries (Matthew Henry, John Gill, Adam Clarke,
   Jamieson-Fausset-Brown, Keil & Delitzsch, Tyndale Open Study Notes), each linking to the full text, plus
   links to Bible Hub, StudyLight and Enduring Word for that verse.
-- **Poster**: the traditional or best-guess human author of the book (see `js/books.js`).
+- **Poster**: the traditional or best-guess human author (see `js/books.js`). Each psalm uses the author in its
+  heading: David, Asaph, the sons of Korah, Solomon, Moses, Ethan, or unknown. Next to the name is how many years
+  ago it was written (e.g. "1966y" for Matthew), from traditional dates.
 - **Profiles**: tap any author (avatar, name or story) for their profile: bio, books, chapters, roughly when
   they lived, and a grid of verses from their books, filterable by book. Tap a tile to scroll through the
   grid's posts in the same order, starting from that one.
@@ -73,6 +75,5 @@ build command and root directory. Every push to another branch then gets its own
 
 ## Ideas for later
 
-- Per-psalm authors (David, Asaph, the sons of Korah, Moses…) instead of "David" for the whole book.
 - Better summaries (for example, probably don't want an LLM summarising the full commentary text though).
 - Make it installable on phones and work offline (bubblewrap or native app or something else)

@@ -1,6 +1,6 @@
 // A single post: carousel, actions, caption, comments sheet, and the
 // full-screen single-post view used by grids and search.
-import { BOOKS, handle } from './books.js';
+import { BOOKS, ageLabel, authorOf, handle } from './books.js';
 import { getChapter } from './bible.js';
 import { getComments, studyLinks } from './commentary.js';
 import * as activity from './activity.js';
@@ -36,7 +36,11 @@ export function renderPost(el, { book, chapter, verse, passage }) {
   const key = activity.postKey(book, chapter, verse.number);
   const seed = hash(ref);
   const bg = PALETTES[seed % PALETTES.length];
-  const user = handle(book.author);
+  const author = authorOf(book, chapter);
+  const user = handle(author);
+  const age = ageLabel(book, chapter);
+  const bookTag = book.name.replace(/\s/g, '').toLowerCase();
+  const authorTag = user.replace(/_/g, '');
   const liked = activity.isLiked(key);
 
   const lenClass = verse.text.length > 380 ? 'xlong' : verse.text.length > 200 ? 'long' : '';
@@ -65,10 +69,10 @@ export function renderPost(el, { book, chapter, verse, passage }) {
   el.className = 'post';
   el.innerHTML = `
     <div class="post-header">
-      <a href="${profileHref(book.author)}" aria-label="${esc(user)}’s profile">${avatarHtml(book.author)}</a>
+      <a href="${profileHref(author)}" aria-label="${esc(user)}’s profile">${avatarHtml(author)}</a>
       <div class="post-meta">
-        <div><a class="user" href="${profileHref(book.author)}">${esc(user)}</a></div>
-        <a class="location" href="${profileHref(book.author, book.id)}">${esc(book.name)} ${chapter}</a>
+        <div><a class="user" href="${profileHref(author)}">${esc(user)}</a><span class="dot">•</span><span class="age" title="${esc(age.title)}">${age.text}</span></div>
+        <a class="location" href="${profileHref(author, book.id)}">${esc(book.name)} ${chapter}</a>
       </div>
     </div>
     <div class="carousel">
@@ -86,9 +90,9 @@ export function renderPost(el, { book, chapter, verse, passage }) {
       <button class="icon-btn save-btn${activity.isSaved(key) ? ' saved' : ''}" aria-label="Save">${ICONS.save}</button>
     </div>
     <div class="post-body">
-      <p class="caption clamped"><a class="user" href="${profileHref(book.author)}">${esc(user)}</a><strong>${esc(ref)}</strong> — ${esc(verse.text)}
-        <a class="tag" href="${profileHref(book.author, book.id)}">#${esc(book.name.replace(/\s/g, '').toLowerCase())}</a>
-        <a class="tag" href="${profileHref(book.author)}">#${esc(user.replace(/_/g, ''))}</a></p>
+      <p class="caption clamped"><a class="user" href="${profileHref(author)}">${esc(user)}</a><strong>${esc(ref)}</strong> — ${esc(verse.text)}
+        <a class="tag" href="${profileHref(author, book.id)}">#${esc(bookTag)}</a>
+        ${authorTag !== bookTag ? `<a class="tag" href="${profileHref(author)}">#${esc(authorTag)}</a>` : ''}</p>
       <button class="more-btn">more</button>
       <div class="comments-preview"><button class="view-comments">View comments</button></div>
       <button class="add-comment">Add a comment…</button>
@@ -175,7 +179,7 @@ export function renderPost(el, { book, chapter, verse, passage }) {
   // Comments
   // Commentary is fetched only once the post is near the screen (or opened),
   // so long lists of posts don't fire hundreds of requests at once.
-  const post = { book, chapter, verse, passage, ref, user, key };
+  const post = { book, chapter, verse, passage, ref, user, author, key };
   post.loadComments = () => (post.comments ??= getComments(book, chapter, verse.number));
   const preview = el.querySelector('.comments-preview');
   preview.querySelector('.view-comments').addEventListener('click', () => openComments(post));
@@ -260,11 +264,11 @@ commentInput.addEventListener('input', () => {
 
 export async function openComments(post, { focus = false } = {}) {
   currentPost = post;
-  const { book, chapter, verse, passage, ref, user } = post;
+  const { book, chapter, verse, passage, ref, user, author } = post;
   commentsBody.innerHTML = `
     <div class="comment caption-comment">
-      <a href="${profileHref(book.author)}">${avatarHtml(book.author)}</a>
-      <div class="comment-main"><a class="user" href="${profileHref(book.author)}">${esc(user)}</a><strong>${esc(ref)}</strong> — ${esc(verse.text)}</div>
+      <a href="${profileHref(author)}">${avatarHtml(author)}</a>
+      <div class="comment-main"><a class="user" href="${profileHref(author)}">${esc(user)}</a><strong>${esc(ref)}</strong> — ${esc(verse.text)}</div>
     </div>
     <div id="my-comments"></div>
     <div class="sentinel"><div class="spinner"></div></div>`;
@@ -423,7 +427,7 @@ export function closeDetail() {
 // Open a single verse as a full post. `book` may be a book object or its id.
 export function openPost(book, chapter, verse) {
   const b = findBook(book);
-  return openPosts([{ book: b, chapter, verse }], 0, { subtitle: handle(b.author) });
+  return openPosts([{ book: b, chapter, verse }], 0, { subtitle: handle(authorOf(b, chapter)) });
 }
 
 detail.querySelector('.detail-back').addEventListener('click', closeDetail);

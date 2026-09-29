@@ -1,10 +1,10 @@
 // Search: jump to a reference ("John 3:16", "ps 23"), a book, or an author.
-import { AUTHORS, BOOKS, handle } from './books.js';
+import { ALL_AUTHORS, AUTHORS, BOOKS, handle, worksOf } from './books.js';
 import { openPost } from './post.js';
 import { ICONS, avatarHtml, esc, profileHref } from './ui.js';
 
 const view = document.getElementById('search-view');
-const AUTHOR_NAMES = [...new Set(BOOKS.map((b) => b.author))];
+const AUTHOR_NAMES = ALL_AUTHORS;
 const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 // Common alternative names and abbreviations that a prefix match wouldn't catch.
@@ -61,12 +61,21 @@ function results(q) {
   if (books.length) {
     out.push('<div class="section-label">Books</div>');
     for (const b of books) {
-      out.push(row({
-        href: profileHref(b.author, b.id),
-        avatar: `<span class="result-icon">${ICONS.book}</span>`,
-        title: esc(b.name),
-        sub: `${b.chapters} chapter${b.chapters > 1 ? 's' : ''} · ${esc(handle(b.author))}`,
-      }));
+      // Psalms has many authors, so list each one's psalms.
+      const parts = b.id === 'PSA'
+        ? AUTHOR_NAMES.map((a) => [a, worksOf(a).find((w) => w.book === b)]).filter(([, w]) => w)
+          .sort(([, x], [, y]) => y.chapters.length - x.chapters.length)
+        : [[b.author, { chapters: { length: b.chapters } }]];
+      for (const [a, w] of parts) {
+        const n = w.chapters.length;
+        const unit = b.id === 'PSA' ? 'psalm' : 'chapter';
+        out.push(row({
+          href: profileHref(a, b.id),
+          avatar: `<span class="result-icon">${ICONS.book}</span>`,
+          title: esc(b.name),
+          sub: `${n} ${unit}${n > 1 ? 's' : ''} · ${esc(handle(a))}`,
+        }));
+      }
     }
   }
   if (authors.length) {

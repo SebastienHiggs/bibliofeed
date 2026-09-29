@@ -1,12 +1,12 @@
 // Author profile: bio, stats, follow, per-book filter and a grid of verses.
-import { AUTHORS, BOOKS, handle, randomChapter } from './books.js';
+import { AUTHORS, handle, randomFromWorks, worksOf } from './books.js';
 import { getChapter } from './bible.js';
 import * as activity from './activity.js';
 import { openPosts } from './post.js';
 import { ICONS, avatarHtml, esc, tileEl, toast } from './ui.js';
 
 const view = document.getElementById('profile-view');
-let profile = null; // { author, books, filter, seen, items, pending, done, misses, gen }
+let profile = null; // { author, works, filter, seen, items, pending, done, misses, gen }
 let gen = 0;
 
 const observer = new IntersectionObserver((entries) => {
@@ -15,40 +15,44 @@ const observer = new IntersectionObserver((entries) => {
 
 const abbrev = (book) => book.id.charAt(0) + book.id.slice(1).toLowerCase();
 
+// "Psalms (12)" when an author wrote only some of a book.
+const workName = (w) => (w.chapters.length < w.book.chapters ? `${w.book.name} (${w.chapters.length})` : w.book.name);
+
 export function showProfile(author, bookId) {
-  const books = BOOKS.filter((b) => b.author === author);
-  const chapters = books.reduce((n, b) => n + b.chapters, 0);
+  const works = worksOf(author);
+  const chapters = works.reduce((n, w) => n + w.chapters.length, 0);
   const info = AUTHORS[author] || { title: '', bio: '', lived: '' };
-  const filter = books.find((b) => b.id === bookId) || null;
+  const filter = works.find((w) => w.book.id === bookId) || null;
+  const onlyPsalms = works.length === 1 && works[0].book.id === 'PSA';
 
   view.innerHTML = `
     <header class="profile-header">
       <div class="profile-row">
         ${avatarHtml(author, { plain: true, cls: 'profile-avatar' })}
         <div class="profile-stats">
-          <div><b>${books.length}</b><span>${books.length === 1 ? 'book' : 'books'}</span></div>
-          <div><b>${chapters}</b><span>chapters</span></div>
+          <div><b>${works.length}</b><span>${works.length === 1 ? 'book' : 'books'}</span></div>
+          <div><b>${chapters}</b><span>${onlyPsalms ? (chapters === 1 ? 'psalm' : 'psalms') : 'chapters'}</span></div>
           <div><b>${esc(info.lived || 'Unknown')}</b><span>lived</span></div>
         </div>
       </div>
       <div class="profile-name">${esc(author)}</div>
       ${info.title ? `<div class="profile-title">${esc(info.title)}</div>` : ''}
       <p class="profile-bio">${esc(info.bio)}</p>
-      <div class="profile-books">${ICONS.book}<span>${books.map((b) => esc(b.name)).join(', ')}</span></div>
+      <div class="profile-books">${ICONS.book}<span>${works.map((w) => esc(workName(w))).join(', ')}</span></div>
       <div class="profile-buttons">
         <button class="follow-btn"></button>
         <button class="secondary-btn share-profile">Share profile</button>
       </div>
     </header>
-    ${books.length > 1 ? `
+    ${works.length > 1 ? `
     <div class="highlights">
       <button class="highlight${filter ? '' : ' on'}" data-book=""><span class="hl-ring"><b>All</b></span><span class="hl-name">All</span></button>
-      ${books.map((b) => `<button class="highlight${filter === b ? ' on' : ''}" data-book="${b.id}"><span class="hl-ring"><b>${abbrev(b)}</b></span><span class="hl-name">${esc(b.name)}</span></button>`).join('')}
+      ${works.map((w) => `<button class="highlight${filter === w ? ' on' : ''}" data-book="${w.book.id}"><span class="hl-ring"><b>${abbrev(w.book)}</b></span><span class="hl-name">${esc(w.book.name)}</span></button>`).join('')}
     </div>` : ''}
     <div class="grid" id="profile-grid"></div>
     <div class="sentinel" id="profile-sentinel"><div class="spinner"></div></div>`;
 
-  profile = { author, books, filter, seen: new Set(), items: [], pending: null, done: false, misses: 0, gen: ++gen };
+  profile = { author, works, filter, seen: new Set(), items: [], pending: null, done: false, misses: 0, gen: ++gen };
   view.hidden = false;
   window.scrollTo({ top: 0 });
 
@@ -75,9 +79,9 @@ export function showProfile(author, bookId) {
     const btn = e.target.closest('.highlight');
     if (!btn) return;
     view.querySelectorAll('.highlight').forEach((h) => h.classList.toggle('on', h === btn));
-    profile.filter = BOOKS.find((b) => b.id === btn.dataset.book) || null;
+    profile.filter = works.find((w) => w.book.id === btn.dataset.book) || null;
     // Keep the URL in step so the filtered view can be shared.
-    history.replaceState(history.state, '', `#/u/${handle(author)}${profile.filter ? `/${profile.filter.id}` : ''}`);
+    history.replaceState(history.state, '', `#/u/${handle(author)}${profile.filter ? `/${profile.filter.book.id}` : ''}`);
     resetGrid();
   });
 
@@ -123,8 +127,8 @@ function loadGrid() {
 // Each batch fetches a few chapters and turns several verses from each into tiles.
 async function loadBatch(st) {
   const batchGen = st.gen;
-  const pool = st.filter ? [st.filter] : st.books;
-  const picks = Array.from({ length: 3 }, () => randomChapter(pool));
+  const pool = st.filter ? [st.filter] : st.works;
+  const picks = Array.from({ length: 3 }, () => randomFromWorks(pool));
   const results = await Promise.all(
     picks.map((p) => getChapter(p.book, p.chapter).then((passage) => ({ ...p, passage })).catch(() => null)),
   );
