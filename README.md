@@ -48,9 +48,11 @@ In the Cloudflare dashboard: **Workers & Pages → Create application → Connec
 | Deploy command | `npx wrangler deploy` |
 | Advanced settings → Path | `bibliofeed` |
 
-`wrangler.jsonc` tells Cloudflare to serve only `dist/` as static files and to give non-production builds
-their own preview URLs (turn on **Settings → Build → Branch control → Builds for non-production branches**). There's no server code, and no
-environment variables or API keys are needed. Every push redeploys.
+`wrangler.jsonc` tells Cloudflare to serve only `dist/` as static files. There's no server code, and no
+environment variables or API keys are needed. Every push to `main` redeploys the live site.
+
+**Preview builds:** in **Settings → Build → Previews Base**, turn on *Builds for Preview branches* with the same
+build command and root directory. Every push to another branch then gets its own preview link.
 
 ## Files
 
