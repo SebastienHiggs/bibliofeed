@@ -11,7 +11,7 @@ const dist = `${root}dist/`;
 
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(`${dist}data/bsb`, { recursive: true });
-for (const f of ['index.html', 'styles.css', 'js']) cpSync(`${root}${f}`, `${dist}${f}`, { recursive: true });
+for (const f of ['index.html', 'styles.css', 'icon.svg', 'js']) cpSync(`${root}${f}`, `${dist}${f}`, { recursive: true });
 
 async function fetchWithRetry(bookId, chapter, tries = 4) {
   for (let i = 1; ; i++) {
