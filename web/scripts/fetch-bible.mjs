@@ -1,5 +1,6 @@
-// Downloads the whole BSB into data/bsb/<BOOK>.json, which is committed to the
-// repo so builds don't need the network. Run it again only to refresh the text.
+// Downloads the whole BSB into the repo's shared data/bsb/<BOOK>.json, which is
+// committed so builds don't need the network. Run it again only to refresh the
+// text. It lives here because it reuses the app's book list and API parser.
 //   node scripts/fetch-bible.mjs
 // Exits with an error, leaving existing files untouched, if any chapter fails.
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { BOOKS } from '../js/books.js';
 import { fetchApiChapter } from '../js/bible.js';
 
-const dir = fileURLToPath(new URL('../data/bsb/', import.meta.url));
+const dir = fileURLToPath(new URL('../../data/bsb/', import.meta.url));
 
 async function fetchWithRetry(bookId, chapter, tries = 4) {
   for (let i = 1; ; i++) {
