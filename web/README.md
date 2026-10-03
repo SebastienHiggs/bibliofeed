@@ -3,6 +3,8 @@
 A photo-feed style web app where every post is a random Bible verse from the public-domain
 **Berean Standard Bible (BSB)**. No framework and no backend: it's static files.
 
+This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofeed/` folder of the home-it repo.
+
 - **Posts**: a random chapter is chosen (every chapter is equally likely), then a random verse from it.
 - **Carousel**: slide 1 is the verse; the remaining slides are the whole chapter, with the verse highlighted.
 - **Comments**: short summaries of public-domain commentaries (Matthew Henry, John Gill, Adam Clarke,
