@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bibliofeed</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="A photo-feed style app where every post is a random Bible verse.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1 class="wordmark"><a href="#/">Bibliofeed</a></h1>
+      <a class="topbar-back" id="topbar-back" href="#/" hidden><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span></span></a>
+      <div class="topbar-actions">
+        <a class="icon-btn" href="#/me" data-nav="me" aria-label="Your saved, liked and commented posts" title="Your activity">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <noscript><p class="empty">Bibliofeed needs JavaScript to load verses. Please turn it on and reload.</p></noscript>
+
+  <main class="feed-wrap">
+    <div id="feed-view">
+      <section class="stories" id="stories" aria-label="Authors"></section>
+      <section id="feed" aria-live="polite"></section>
+      <div id="sentinel" class="sentinel"><div class="spinner"></div></div>
+    </div>
+    <div id="profile-view" hidden></div>
+    <div id="account-view" hidden></div>
+    <div id="search-view" hidden></div>
+  </main>
+
+  <!-- Single post opened from a grid or search -->
+  <div class="detail" id="post-detail" hidden>
+    <div class="detail-bar">
+      <button class="icon-btn detail-back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="detail-title"><small class="detail-user"></small><b>Posts</b></div>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+
+  <nav class="bottombar" aria-label="Primary">
+    <a class="icon-btn" href="#/" data-nav="feed" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg></a>
+    <a class="icon-btn" href="#/search" data-nav="search" aria-label="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></a>
+  </nav>
+
+  <!-- Comments sheet -->
+  <div class="sheet-backdrop" id="comments-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="comments-title">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 id="comments-title">Comments</h2>
+        <button class="icon-btn close-sheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body" id="comments-body"></div>
+      <form class="comment-form" id="comment-form">
+        <input type="text" placeholder="Add a comment…" aria-label="Add a comment" maxlength="1000" enterkeyhint="send">
+        <button type="submit" disabled>Post</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
