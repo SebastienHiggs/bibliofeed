@@ -28,17 +28,18 @@ they don't sync between devices.
 
 ## Where the text comes from
 
-`npm run build` downloads the whole BSB from the [Free Use Bible API](https://bible.helloao.org) and writes
-the site to `dist/`, with one JSON file per book in `dist/data/bsb/`. The app loads a book's file the first
-time it needs it. Any chapter that isn't bundled (running from source, or a failed download during the build)
-is fetched live from the same API instead. Commentaries are always fetched live.
+The whole BSB is committed to the repo as one JSON file per book in `data/bsb/` (about 4 MB), so builds
+don't need the network. `npm run fetch-bible` downloads it again from the
+[Free Use Bible API](https://bible.helloao.org); you only need that to refresh the text. `npm run build` copies
+the site and those files into `dist/`. The app loads a book's file the first time it needs it, and fetches any
+chapter that isn't there live from the same API. Commentaries are always fetched live.
 
 ## Run locally
 
 ```sh
 cd web
-npm start              # serves the source; chapters load live
-npm run build && npm run preview   # serves dist/ with the bundled Bible
+npm start              # serves the source
+npm run build && npm run preview   # serves the built dist/
 ```
 
 ## Deploy on Cloudflare
@@ -71,7 +72,9 @@ build command and root directory. Every push to another branch then gets its own
 | `js/bible.js` | Loads chapters (bundled file → live API fallback) |
 | `js/commentary.js` | Commentary summaries and study links |
 | `js/books.js` | The 66 books: codes, chapter counts, authors, bios |
-| `scripts/build.mjs` | Builds `dist/` and bundles the BSB |
+| `data/bsb/` | The BSB text, one JSON file per book |
+| `scripts/fetch-bible.mjs` | Downloads the BSB into `data/bsb/` |
+| `scripts/build.mjs` | Builds `dist/` from the source and `data/bsb/` |
 | `server.js` | Zero-dependency static server for local development |
 | `wrangler.jsonc` | Cloudflare config: serve `dist/` as static assets |
 

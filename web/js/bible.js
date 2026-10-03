@@ -1,8 +1,8 @@
 // Scripture text: the Berean Standard Bible (BSB), which is public domain.
 //
-// The build (scripts/build.mjs) bundles the whole BSB as one JSON file per
-// book under data/bsb/. If a book file is missing (e.g. running from source
-// without building), chapters are fetched live from the Free Use Bible API.
+// The whole BSB is bundled as one JSON file per
+// book under data/bsb/ (see scripts/fetch-bible.mjs). If a book file is missing,
+// chapters are fetched live from the Free Use Bible API.
 
 export const TRANSLATION = 'BSB';
 export const COPYRIGHT = 'The Holy Bible, Berean Standard Bible (BSB) is in the public domain.';
