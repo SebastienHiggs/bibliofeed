@@ -34,7 +34,7 @@ is fetched live from the same API instead. Commentaries are always fetched live.
 ## Run locally
 
 ```sh
-cd bibliofeed
+cd web
 npm start              # serves the source; chapters load live
 npm run build && npm run preview   # serves dist/ with the bundled Bible
 ```
@@ -48,7 +48,7 @@ In the Cloudflare dashboard: **Workers & Pages → Create application → Connec
 | Project name | `bibliofeed` (must match `name` in `wrangler.jsonc`) |
 | Build command | `npm run build` |
 | Deploy command | `npx wrangler deploy` |
-| Advanced settings → Path | `bibliofeed` |
+| Advanced settings → Path | `web` |
 
 `wrangler.jsonc` tells Cloudflare to serve only `dist/` as static files. There's no server code, and no
 environment variables or API keys are needed. Every push to `main` redeploys the live site.
