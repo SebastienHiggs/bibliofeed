@@ -39,7 +39,7 @@ function render() {
         </div>
       </div>
       <div class="profile-name">You</div>
-      <p class="profile-bio muted">Your activity is saved in this browser only.</p>
+      <p class="profile-bio muted">Your activity is saved in this browser only!</p>
     </header>
     <div class="section-label">Following</div>
     ${follows.length
