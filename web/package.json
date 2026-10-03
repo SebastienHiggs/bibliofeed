@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "fetch-bible": "node scripts/fetch-bible.mjs",
     "start": "node server.js",
     "preview": "node server.js dist"
   }
