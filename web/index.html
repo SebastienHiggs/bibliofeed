@@ -54,15 +54,24 @@
     <a class="icon-btn" href="#/search" data-nav="search" aria-label="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></a>
   </nav>
 
-  <!-- Comments sheet -->
+  <!-- Comments sheet: two panes, swipe or tap the tabs. Commentary first; then
+       comments from you and your friends on this verse and elsewhere in the chapter. -->
   <div class="sheet-backdrop" id="comments-backdrop" hidden>
-    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="comments-title">
+    <div class="sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="comments-title">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <h2 id="comments-title">Comments</h2>
         <button class="icon-btn close-sheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
-      <div class="sheet-body" id="comments-body"></div>
+      <p class="sheet-caption" id="comments-caption"></p>
+      <nav class="sheet-tabs" id="comments-tabs" aria-label="Comment sections">
+        <button class="on" data-pane="0">Commentary</button>
+        <button data-pane="1">Comments</button>
+      </nav>
+      <div class="panes" id="comments-panes">
+        <div class="pane" id="commentary-pane"></div>
+        <div class="pane" id="comments-pane"></div>
+      </div>
       <form class="comment-form" id="comment-form">
         <input type="text" placeholder="Add a comment…" aria-label="Add a comment" maxlength="1000" enterkeyhint="send">
         <button type="submit" disabled>Post</button>

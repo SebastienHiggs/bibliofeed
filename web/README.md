@@ -23,7 +23,10 @@ This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofe
   name, and sign out or delete your account from Settings. Signed in, your likes, saves and comments belong
   to your account and follow you across devices. Signed out, everything still works as before, in this
   browser only.
-- **Comments**: add your own comments to any post, alongside the commentary summaries.
+- **Comments**: add your own comments to any post. The sheet has two panes you swipe between: Commentary
+  (the summaries, first) and Comments, which shows comments on this verse and then comments elsewhere in
+  the same chapter, each tagged with its verse. That way a comment on Ezra 5:10 is met from any verse of
+  Ezra 5, not only when that one verse comes round. Every list shows a few entries and a Show more.
 - Double-tap to like, share/copy, infinite scroll, light/dark mode.
 
 Likes, saves and comments are stored in the browser (localStorage). There are no accounts yet, so

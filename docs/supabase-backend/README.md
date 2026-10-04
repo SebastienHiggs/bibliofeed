@@ -84,6 +84,7 @@ rest of the UI calls them directly. `onChange(fn)` notifies views when anything 
 | **Collections**: one table for likes, saves and the library. Every user gets three built-ins (Likes, Saved, Library) and can make their own. | Likes and saves are the same structure already. One table instead of three. | Separate `likes`, `saves` and `reposts` tables. |
 | **Visibility depends on collection type, with no setting.** Library is visible to friends. Likes, Saved and custom collections are private. | No visibility column or UI. | A private/friends switch per collection (easy to add later). |
 | **Comments are visible to you and your friends.** They can be deleted but not edited, matching today's app. | No visibility column. | Per-comment visibility. |
+| **A comment is stored against a verse but shown chapter-wide.** The comments sheet on any post lists the whole chapter's comments from you and your friends: those on this verse first, then "Elsewhere in Ezra 5", each tagged "v. 10". | The feed is random over 31,102 verses, so a comment pinned to one verse was almost never met again; a chapter comes round about 26 times more often. The query is a prefix of the comments index, so nothing in the schema changes. | Making the chapter the unit of comments (verse optional): one small migration later if people want to comment on a chapter as a whole. Comments at chapter level for likes and saves too: no, the thing you like is the verse. |
 | **A verse is identified by `(book, chapter, verse)`**, e.g. `('JHN', 3, 16)`, using the 3-letter codes in `web/js/books.js`. There is no `posts` table and no UUID per verse. | References never change, match the URLs and the local data, and are as fast to look up as a UUID. | A `verses` table with 31,102 UUID rows: joins everywhere for no gain. |
 | **Verse text is not stored in the database.** The app looks it up from `data/bsb/`, as it does for posts. | The text is fixed and already bundled. Not storing it means it can't go stale and doesn't tie stored data to one translation. | Copying the text into every row, like the localStorage snapshots do. |
 | **Access rules never call a function per row.** "Is this a friend's?" is written as `user_id in (select friend_ids())`, which Postgres evaluates once per statement. Items check only their own collection. | At a million users the first draft's `is_friend(user_id)` per row and `collection_id in (select id from collections)` would have scanned every library in the system on every query. | A denormalised `user_id` on `collection_items`: faster still, but a second copy of ownership to keep right. |
@@ -277,8 +278,13 @@ tiles.
 - **Heart / double-tap** adds to Likes.
 - **Bookmark tap** adds to Saved. **Press and hold** opens a sheet to choose a collection or make a new one.
 - **A new "Add to Library" button** adds to Library (signed in only). In the schema the kind is `library`.
-- **The comments sheet** shows the commentary summaries, then comments from you and your friends with
-  their display names. Signed out, it shows only your local comments, as now.
+- **The comments sheet** has two panes, swiped or tapped between: **Commentary** first (the exegesis,
+  by the owner's decision), then **Comments**, holding "On 5:10" and "Elsewhere in Ezra 5" (tagged with
+  the verse; tapping the tag turns the carousel to that verse). Every list is capped at three with a
+  "Show more", so nothing is unbounded. The tab reads "Comments (N)" and the line under each post reads
+  "View commentary · N comments", counting the whole chapter, so people's comments are noticed without
+  scrolling past the commentaries. Friends' comments join these lists in the friends step; the queries
+  always name the people (see [Target](#target)). Signed out, it shows only your local comments.
 
 ### Routes
 
@@ -476,3 +482,7 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   (version 2, with the one-time upgrade of old data) and became two stores behind one interface. Verified
   against the local stack: likes, saves and comments written while signed in appear in the database with
   client-generated ids, reload from the account, and the browser's own data returns on sign-out.
+- **Comments shown chapter-wide (4 Oct 2026)**, after the owner found a comment on Ezra 5:10 impossible to
+  meet again. The sheet became two panes (Commentary, Comments) with capped lists; see the decisions
+  table. Verified: a comment on Deuteronomy 17:10 appears under "Elsewhere in Deuteronomy 17" when
+  viewing 17:5, and its tag turns the carousel to the slide with verse 10.

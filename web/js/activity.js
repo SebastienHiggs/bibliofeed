@@ -168,6 +168,10 @@ export const savedPosts = () => collectionPosts(byKind('saved')?.id);
 
 export const commentsFor = (key) =>
   state.comments.filter((c) => refKey(c) === key).sort((a, b) => a.at - b.at);
+// Every comment of yours in a chapter, oldest first. A post shows the whole
+// chapter's comments, so one on Ezra 5:10 is met from any verse of Ezra 5.
+export const commentsInChapter = (bookId, chapter) =>
+  state.comments.filter((c) => c.book === bookId && c.chapter === chapter).sort((a, b) => a.at - b.at);
 
 export function addComment(book, chapter, verse, text) {
   const comment = { id: newId(), book: book.id, chapter, verse: verse.number ?? verse, comment: text, at: Date.now() };
