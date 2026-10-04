@@ -8,8 +8,9 @@ This folder holds:
 | File | What it is |
 | --- | --- |
 | `README.md` | This plan: what we're building, the decisions behind it, and how the app changes |
-| [`schema.sql`](schema.sql) | The whole backend: 5 tables, 4 functions, 1 trigger, the grants and the access rules |
-| [`tests/`](tests/) | Checks that the access rules do what this plan says, and a probe that times the app's queries with 100,000 users. `tests/run.sh` runs them on a local Postgres |
+| [`supabase/migrations/20261004120000_init.sql`](../../supabase/migrations/20261004120000_init.sql) | The whole backend: 5 tables, 4 functions, 1 trigger, the grants and the access rules |
+| [`supabase/tests/`](../../supabase/tests/) | Checks that the access rules do what this plan says, and a probe that times the app's queries with 100,000 users. `run.sh` runs them on the local Supabase stack or a plain Postgres |
+| [`supabase/config.toml`](../../supabase/config.toml) | The local stack's settings. Realtime, Storage, Edge Functions and analytics are off because nothing uses them |
 
 ## Target
 
@@ -24,7 +25,7 @@ This folder holds:
 
 The write rate is trivial for Postgres. What matters is that **every query the app makes costs in proportion
 to one user's own data and friends, never to the size of the user base or the popularity of a verse.** The
-access rules and indexes below are arranged for that, and `tests/scale.sql` checks it.
+access rules and indexes below are arranged for that, and `supabase/tests/scale.sql` checks it.
 
 ## What we're adding
 
@@ -94,7 +95,8 @@ rest of the UI calls them directly. `onChange(fn)` notifies views when anything 
 
 ## Backend
 
-All of it is in [`schema.sql`](schema.sql). In plain English:
+All of it is in the first migration, [`20261004120000_init.sql`](../../supabase/migrations/20261004120000_init.sql).
+In plain English:
 
 ### Tables
 
@@ -158,14 +160,17 @@ them.
 
 ### Tests
 
-`tests/run.sh` creates a throwaway database on a local Postgres, loads a small stand-in for the parts of
-Supabase the schema uses (`tests/supabase-stub.sql`: the `anon` and `authenticated` roles, `auth.users`
-and `auth.uid()`), runs `schema.sql`, then runs `tests/access-rules.sql`. That file signs in as three
-users (Alice and Bob become friends; Carol has no friends) and checks 43 rules, such as "a friend sees
-only your Library", "you can't comment as someone else" and "the requester can't accept their own
-request". All pass on Postgres 16.
+`supabase/tests/run.sh` resets the local Supabase stack's database (which applies every migration) and
+runs `access-rules.sql` against it. That file signs in as three users (Alice and Bob become friends; Carol
+has no friends) and checks 43 rules, such as "a friend sees only your Library", "you can't comment as
+someone else" and "the requester can't accept their own request". **All 43 pass on the real stack
+(Supabase's Postgres 17.11)**, including deleting an account through `delete_my_account()`.
 
-`SCALE=1 tests/run.sh` also runs `tests/scale.sql`: 100,000 users with 20 friends, 30 likes, 10 library
+`run.sh --plain` runs the same checks in seconds on any plain Postgres (14+) instead, with
+`supabase-stub.sql` standing in for the `anon` and `authenticated` roles, `auth.users`, `auth.uid()` and
+the `extensions` schema. That proves the rules' logic but not the Supabase specifics.
+
+`SCALE=1 run.sh` (either mode) also runs `scale.sql`: 100,000 users with 20 friends, 30 likes, 10 library
 items and 26 comments each (2 million friendships, 4 million items, 2.6 million comments, 52,000 of them on
 John 3:16), then times each query the app makes as one of those users. On a laptop:
 
@@ -178,25 +183,24 @@ John 3:16), then times each query the app makes as one of those users. On a lapt
 | Inserting a like, inserting a comment | each under 0.5 ms |
 
 Every figure depends on the user's own data and friend count, not the number of users, so the same shape
-holds at a million. Rerun it after changing any policy or index.
-
-The stand-in is not Supabase, so this proves the rules' logic, not the Supabase specifics. The real check
-is the local Supabase stack, below.
+holds at a million. Rerun it after changing any policy or index. (Measured on plain Postgres 16.)
 
 ### Testing backend changes locally
 
-Supabase's hosted branching is a paid feature, so every change is tried on a local copy first. **This is not
-set up yet; it is step 1 of the build order.** Once it is:
+Supabase's hosted branching is a paid feature, so every change is tried on a local copy first. The local
+stack is set up (`supabase/config.toml`); it needs Docker and uses `npx supabase`, so nothing else is
+installed.
 
-1. `supabase start` at the repo root runs the whole stack in Docker (Postgres with the real `auth` schema
-   and roles, the API, auth, and a mail catcher at `http://localhost:54324` for the sign-in codes).
-2. `supabase db reset` wipes the local database and applies every file in `supabase/migrations/`.
-3. `supabase/tests/run.sh` then runs `access-rules.sql` (and `scale.sql` with `SCALE=1`) against that
-   database instead of a throwaway one. `set_config('request.jwt.claim.sub', …)` works there too.
-4. Point the web app at the local stack while developing: `supabase status` prints the local URL and key,
-   which go in an uncommitted `web/js/config.local.js` that overrides `config.js`.
-5. A schema change is a new file in `supabase/migrations/`, reviewed in a pull request. `supabase db push`
-   applies it to the hosted project, and only from `main`.
+1. `npx supabase start` at the repo root runs the stack: Postgres with the real `auth` schema and roles,
+   the API, auth, Studio at `http://127.0.0.1:54343` and a mail catcher at `http://127.0.0.1:54344` where
+   sign-in codes arrive. Ports are 5434x so it runs beside other local Supabase projects.
+2. `npx supabase db reset` wipes the local database and applies every file in `supabase/migrations/`.
+3. `supabase/tests/run.sh` does that and runs the checks (and `scale.sql` with `SCALE=1`).
+4. Point the web app at the local stack while developing: `npx supabase status` prints the local URL and
+   publishable key, which go in an uncommitted `web/js/config.local.js` that overrides `config.js`. The
+   local keys are the same for everyone and protect nothing.
+5. A schema change is a new file in `supabase/migrations/` (`npx supabase migration new <name>`), reviewed
+   in a pull request. `supabase db push` applies it to the hosted project, and only from `main`.
 
 Contributors do the same with their own local stack. Nothing they run touches the hosted database.
 
@@ -337,10 +341,8 @@ changes it:
 ## Setting up Supabase
 
 1. **Create a Supabase project.** One project to start; previews and production can share it at first.
-2. **Commit the schema as a migration from day one**: `supabase init` at the repo root, move `schema.sql` to
-   `supabase/migrations/<timestamp>_init.sql` and this folder's `tests/` to `supabase/tests/`, and change
-   `run.sh` to apply `supabase/migrations/*.sql` so later migrations are tested too. Apply with
-   `supabase db push`.
+2. **Link the repo to it and apply the migration**: `supabase link --project-ref <ref>` then
+   `supabase db push`, from `main`. (The schema has lived in `supabase/migrations/` since 4 Oct 2026.)
 3. **Auth settings**: email sign-in on, with sign-in by code. Turn off every other provider. Change the
    "Magic Link" and "Confirm signup" email templates to show `{{ .Token }}` (the code) instead of a link.
    Keep the code length at 6 and shorten its lifetime from the default hour to 10 minutes.
@@ -423,15 +425,14 @@ ever isn't, partition `comments` by `created_at` year. Nothing in the app would 
 
 ## Things to verify
 
-These are Supabase specifics the local tests can't cover. Running the tests on `supabase start` (see
-[Tests](#tests)) covers the first.
+These are specifics of the hosted service that the local stack can't cover. (The local stack has settled
+two: `delete_my_account()` deletes from `auth.users` as intended, and new projects issue
+`sb_publishable_…` keys, which the local stack prints alongside the legacy anon key.)
 
-1. **`delete_my_account()`**: a `security definer` function owned by `postgres` deleting from `auth.users`
-   is a widely used pattern and sessions cascade with the user, but confirm it on a real stack. If it
-   fails, the alternative is an Edge Function using the admin API. That would be the only server code.
-2. **API keys**: Supabase has been moving from the `anon` key to "publishable" keys (`sb_publishable_…`).
-   Use whichever new projects get; they map to the `anon` role.
-3. **Rate limits on code emails**: the defaults with custom SMTP, and the Turnstile setup.
+1. **`delete_my_account()` on the hosted project**: the local stack says yes; confirm once on the hosted
+   one, since role privileges there could differ. If it fails, the alternative is an Edge Function using
+   the admin API. That would be the only server code.
+2. **Rate limits on code emails**: the defaults with custom SMTP, and the Turnstile setup.
 
 ## Decisions taken by the owner, 4 Oct 2026
 
@@ -461,5 +462,7 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   added to the front-end plan.
 - **Setup**: migrations from day one, tests on `supabase start`, Turnstile, shorter code lifetime, compute
   notes.
-- **Tests**: 8 more rule checks (43), a scale probe (`tests/scale.sql`), and a `.gitattributes` so
-  `run.sh` keeps LF line endings on Windows checkouts.
+- **Tests**: 8 more rule checks (43), a scale probe (`scale.sql`), and a `.gitattributes` so `run.sh`
+  keeps LF line endings on Windows checkouts.
+- **Build step 1 done (4 Oct 2026)**: `supabase init`, the schema moved to `supabase/migrations/`, the tests
+  to `supabase/tests/`, and the local stack configured and used to run them.

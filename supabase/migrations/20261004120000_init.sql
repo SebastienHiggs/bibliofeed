@@ -1,4 +1,4 @@
--- Bibliofeed: the whole backend. Becomes the first file in supabase/migrations/.
+-- Bibliofeed: the whole backend, as the first migration. docs/supabase-backend/README.md explains it.
 
 -- ---------- tables ----------
 
