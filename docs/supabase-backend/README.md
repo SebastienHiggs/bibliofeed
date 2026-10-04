@@ -1,30 +1,30 @@
 # Plan: accounts and friends with a Supabase backend
 
-Status: **proposal, ready for review**. Nothing in `web/` has changed yet.
+Status: **proposal, revised after review (4 Oct 2026)**. Nothing in `web/` has changed yet.
+[Changes since the first draft](#changes-since-the-first-draft) lists what the review changed.
 
 This folder holds:
 
 | File | What it is |
 | --- | --- |
 | `README.md` | This plan: what we're building, the decisions behind it, and how the app changes |
-| [`schema.sql`](schema.sql) | The whole backend: 5 tables, 3 functions, 1 trigger and the access rules |
-| [`tests/`](tests/) | Checks that the access rules do what this plan says. `tests/run.sh` runs them on a local Postgres |
+| [`schema.sql`](schema.sql) | The whole backend: 5 tables, 4 functions, 1 trigger, the grants and the access rules |
+| [`tests/`](tests/) | Checks that the access rules do what this plan says, and a probe that times the app's queries with 100,000 users. `tests/run.sh` runs them on a local Postgres |
 
-## For the reviewer
+## Target
 
-This plan came out of a long conversation with the project owner. Everything under
-[Decisions](#decisions) was agreed with them, and the reasons are written down so you don't have to
-re-derive them. Please review:
+**Stable at about 1,000,000 users, each commenting roughly once a week.** That is:
 
-1. **The access rules in `schema.sql`.** Can any user read or change something they shouldn't? The tests
-   cover the cases we thought of. Add any you think are missing.
-2. **The Supabase details listed under [Things to verify](#things-to-verify).** These were written from
-   memory of how Supabase works and haven't been tried on a real project.
-3. **Simplicity.** The owner's strongest preference is a backend that is as small and maintainable as
-   possible. Flag anything that could be removed. Be wary of adding things.
-4. **The front-end plan** under [Changes to the web app](#changes-to-the-web-app), against the code in `web/js/`.
+| | |
+| --- | --- |
+| Comments written | ~1.7 a second on average, ~52 million a year |
+| Comments on the single most popular verse | roughly 1 million a year, if it takes 2% of all comments |
+| Friendships | ~10–25 million rows (20–50 friends each) |
+| Collection items | ~200 million rows at 200 likes and saves per user |
 
-The open questions at the end are for the owner, not the reviewer, but say so if you have a view.
+The write rate is trivial for Postgres. What matters is that **every query the app makes costs in proportion
+to one user's own data and friends, never to the size of the user base or the popularity of a verse.** The
+access rules and indexes below are arranged for that, and `tests/scale.sql` checks it.
 
 ## What we're adding
 
@@ -76,7 +76,7 @@ rest of the UI calls them directly. `onChange(fn)` notifies views when anything 
 | **Supabase, called straight from the browser.** No server code, no Edge Functions. Postgres row-level security (RLS) decides who can see what. | Least code to maintain. The site stays static files on Cloudflare. | A Worker API in front of the database: more code, nothing gained. |
 | **Sign-in is email plus a 6-digit code only.** | No passwords. The same flow works on web, Android and iOS with no deep links. No third-party sign-in means Apple doesn't require Sign in with Apple. | Google/Facebook/Apple sign-in (complexity, and Apple's rule). Magic links (unreliable inside mobile apps). |
 | **A profile is only a username and a display name.** Email stays in Supabase's `auth.users` and is never shown to anyone. | Privacy. | Bios, avatars and other fields now. Add them when profile customisation is built. |
-| **Usernames are `[a-z0-9_]{3,20}`.** Bible authors' handles and app route names are reserved. | User profiles live at `#/@username` and author profiles at `#/u/<handle>`, and the two must never be confused. | |
+| **Usernames are `[a-z0-9_]{3,20}`.** Only app and system names (`me`, `search`, `signin`, `settings`, `admin`, `bibliofeed`) are reserved. | User profiles live at `#/@username` and author profiles at `#/u/<handle>`, so the routes can't be confused and a real John can be `@john`. | Reserving every Bible author's handle: a second copy of the list in `books.js`, and a migration every time it changes. |
 | **Friends only. Following is removed entirely**, including following Bible authors. | Following another user felt wrong to the owner, and following authors added little. | One-way follows. |
 | **The feed is fully random, as if you followed every author**: a random chapter (all 1,189 equally likely), then a random verse in it. This is what the app does today without follows. | The owner confirmed chapter-first is right. Verses in short chapters come up more often; that's accepted. | Every verse equally likely. Every book equally likely. |
 | **Friends' library items appear only on their profiles**, never in the main feed. | Keeps the feed purely Bible verses. | |
@@ -85,6 +85,9 @@ rest of the UI calls them directly. `onChange(fn)` notifies views when anything 
 | **Comments are visible to you and your friends.** They can be deleted but not edited, matching today's app. | No visibility column. | Per-comment visibility. |
 | **A verse is identified by `(book, chapter, verse)`**, e.g. `('JHN', 3, 16)`, using the 3-letter codes in `web/js/books.js`. There is no `posts` table and no UUID per verse. | References never change, match the URLs and the local data, and are as fast to look up as a UUID. | A `verses` table with 31,102 UUID rows: joins everywhere for no gain. |
 | **Verse text is not stored in the database.** The app looks it up from `data/bsb/`, as it does for posts. | The text is fixed and already bundled. Not storing it means it can't go stale and doesn't tie stored data to one translation. | Copying the text into every row, like the localStorage snapshots do. |
+| **Access rules never call a function per row.** "Is this a friend's?" is written as `user_id in (select friend_ids())`, which Postgres evaluates once per statement. Items check only their own collection. | At a million users the first draft's `is_friend(user_id)` per row and `collection_id in (select id from collections)` would have scanned every library in the system on every query. | A denormalised `user_id` on `collection_items`: faster still, but a second copy of ownership to keep right. |
+| **The app always asks for comments by named people** (itself and its friends), never "all comments on this verse". | Only then is the cost proportional to your friend count. Measured: ~1 ms versus ~280 ms with 52,000 comments on one verse. | An index on the verse alone, which would still read every comment on it. |
+| **Grants are spelled out in full**, not left to the project's defaults. | The schema stands on its own and can be read without knowing Supabase's defaults. | Revoking from the defaults, as the first draft did. |
 | **Signed-out users keep using localStorage.** The app doesn't load Supabase until someone signs in. | Signed-out behaviour stays as it is now, with no backend. | Anonymous Supabase accounts. |
 | **Importing local data is done by the browser** with plain inserts, once, when you first sign in on that browser. | No server function. Phone apps don't need an import path: anyone who wants their browser data moved signs in on that browser. | An `import_local_activity` database function. |
 | **Supabase Realtime and Storage aren't used yet.** | Nothing needs them until bible studies (Realtime) and avatars (Storage). | |
@@ -103,10 +106,22 @@ All of it is in [`schema.sql`](schema.sql). In plain English:
 | `collection_items` | `collection_id`, `book`, `chapter`, `verse`, `added_at` |
 | `comments` | `user_id`, `book`, `chapter`, `verse`, `body` (1–2,000 characters), `created_at` |
 
+Indexes, beyond primary keys and the unique username: trigram (GiST) indexes on username and display name
+for the people search (the `pg_trgm` extension, which Supabase ships); friendships by addressee and by pair;
+collections by user, and by `(user, kind)` for the built-ins; comments by `(user, book, chapter, verse)`.
+That last one is the only index comments need, because both queries the app makes ("comments by these
+people on this verse" and "all my comments") are prefix lookups on it.
+
 ### Functions and trigger
 
-- **`is_friend(other)`**: is `other` an accepted friend of the signed-in user? It only answers about the
-  caller, so nobody can use it to find out who else is friends with whom. The access rules use it.
+- **`friend_ids()`**: the signed-in user's accepted friends. It runs as the caller, so it can only read the
+  friendship rows the caller may see anyway. The access rules use it, and the app can call it too
+  (`rpc('friend_ids')`) to get the ids it needs for comment queries.
+- **`search_profiles(q)`**: the 20 people whose username or display name best matches `q`, by trigram word
+  similarity, so "seb" finds "Sebastien Higgs" and a small typo still matches. It exists because a plain
+  `ilike` search has a cliff: a term that matches almost nobody makes Postgres read the whole table
+  (measured: 200 ms at 100,000 users, so seconds at a million). The function instead takes the 20 nearest
+  names from each index and stops, whatever the term.
 - **A trigger on new profiles** creates that user's Likes, Saved and Library collections.
 - **`delete_my_account()`**: deletes the signed-in user's account and, by cascade, everything they own.
 
@@ -123,10 +138,17 @@ Signed-out visitors get nothing from the database. For signed-in users:
 | Comments | Yours and your friends' | You add and delete your own. No editing |
 
 Column-level grants back these up: for example, you can update a friendship's `accepted` column but never
-its `requester` or `addressee`, so a request can't be rewritten to come from someone else.
+its `requester` or `addressee`, so a request can't be rewritten to come from someone else. Tables with
+nothing to edit (items, comments) have no update grant at all.
 
-**One trade-off accepted:** any signed-in user can list every username and display name through the API.
-Stopping that needs a server-side exact-username lookup. Profiles hold nothing else, so it wasn't worth it.
+**One trade-off accepted:** any signed-in user can search and page through every username and display
+name. That is the people search working as intended, and at a million users it is also a scrapeable
+directory, though one that holds nothing but chosen names. Limiting it later (exact-username lookup only,
+profiles readable by friends only) is a one-migration change.
+
+**Known gap, accepted for now:** nothing limits how many friend requests one account can send, and a
+declined requester can ask again straight away. If this is abused, the fix is a `blocked` state on
+friendships (the `accepted` flag becomes a status column) and a cap on pending requests, in one migration.
 
 ### What "comments visible to friends" means
 
@@ -139,11 +161,44 @@ them.
 `tests/run.sh` creates a throwaway database on a local Postgres, loads a small stand-in for the parts of
 Supabase the schema uses (`tests/supabase-stub.sql`: the `anon` and `authenticated` roles, `auth.users`
 and `auth.uid()`), runs `schema.sql`, then runs `tests/access-rules.sql`. That file signs in as three
-users (Alice and Bob become friends; Carol has no friends) and checks 35 rules, such as "a friend sees
-only your Library" and "the requester can't accept their own request". All pass on Postgres 16.
+users (Alice and Bob become friends; Carol has no friends) and checks 43 rules, such as "a friend sees
+only your Library", "you can't comment as someone else" and "the requester can't accept their own
+request". All pass on Postgres 16.
 
-The stand-in is not Supabase, so this proves the rules' logic, not the Supabase specifics. See
-[Things to verify](#things-to-verify).
+`SCALE=1 tests/run.sh` also runs `tests/scale.sql`: 100,000 users with 20 friends, 30 likes, 10 library
+items and 26 comments each (2 million friendships, 4 million items, 2.6 million comments, 52,000 of them on
+John 3:16), then times each query the app makes as one of those users. On a laptop:
+
+| Query | Time |
+| --- | --- |
+| Comments on John 3:16 by me and my friends | ~1 ms |
+| The same without naming the people (what the app must never do) | ~280 ms |
+| All my comments, my collections, a page of my Likes, a friend's Library, my friendships with profiles, a profile by username | each under 0.5 ms |
+| People search, whether the term matches a few hundred people, everyone or nobody | 25–35 ms |
+| Inserting a like, inserting a comment | each under 0.5 ms |
+
+Every figure depends on the user's own data and friend count, not the number of users, so the same shape
+holds at a million. Rerun it after changing any policy or index.
+
+The stand-in is not Supabase, so this proves the rules' logic, not the Supabase specifics. The real check
+is the local Supabase stack, below.
+
+### Testing backend changes locally
+
+Supabase's hosted branching is a paid feature, so every change is tried on a local copy first. **This is not
+set up yet; it is step 1 of the build order.** Once it is:
+
+1. `supabase start` at the repo root runs the whole stack in Docker (Postgres with the real `auth` schema
+   and roles, the API, auth, and a mail catcher at `http://localhost:54324` for the sign-in codes).
+2. `supabase db reset` wipes the local database and applies every file in `supabase/migrations/`.
+3. `supabase/tests/run.sh` then runs `access-rules.sql` (and `scale.sql` with `SCALE=1`) against that
+   database instead of a throwaway one. `set_config('request.jwt.claim.sub', …)` works there too.
+4. Point the web app at the local stack while developing: `supabase status` prints the local URL and key,
+   which go in an uncommitted `web/js/config.local.js` that overrides `config.js`.
+5. A schema change is a new file in `supabase/migrations/`, reviewed in a pull request. `supabase db push`
+   applies it to the hosted project, and only from `main`.
+
+Contributors do the same with their own local stack. Nothing they run touches the hosted database.
 
 ## Changes to the web app
 
@@ -151,25 +206,34 @@ The stand-in is not Supabase, so this proves the rules' logic, not the Supabase 
 
 - **Bundle a pinned copy of `supabase-js` with the site** rather than loading it from a third-party CDN, so
   no outside service sees visitors' requests. There's no bundler, so `scripts/build.mjs` would copy the
-  library's prebuilt browser file from `node_modules` into `dist/`.
+  library's prebuilt browser file (`dist/umd/supabase.js` in the package) from `node_modules` into `dist/`.
 - **The project URL and public key go in a committed `web/js/config.js`.** They're public by design (RLS
   protects the data), so they don't need to be secret build variables. `web/README.md` currently says
   "no environment variables or API keys are needed"; update it.
-- **Signed out, the app never loads `supabase-js` and makes no requests to Supabase.** On startup it checks
-  whether a Supabase session is saved in localStorage (the `sb-<project>-auth-token` key) and only loads
-  the library if one is.
+- **Signed out, the app never loads `supabase-js` and makes no requests to Supabase.** The app keeps its own
+  `bibliofeed:signedIn` flag in localStorage, set at sign-in and cleared at sign-out, and only loads the
+  library when it's set. (Don't read `supabase-js`'s own storage key for this; its name is an internal
+  detail.)
 
 ### `activity.js`: two stores behind one interface
 
 Keep the module's public functions, and keep them synchronous so the views barely change:
 
 - **Signed out**: localStorage, as now, in the new format below.
-- **Signed in**: when the app starts, load the user's own data in a few queries (their collections,
-  collection items and comments; this is small) into the same in-memory state. Reads come from memory.
-  Writes update memory straight away, call `onChange`, then send the change to Supabase. If the request
-  fails, undo the change in memory and show a toast.
+- **Signed in**: when the app starts, load the user's own data into the same in-memory state: collections,
+  friendships (with the friends' profiles), and the items and comments. Reads come from memory. Writes
+  update memory straight away, call `onChange`, then send the change to Supabase. If the request fails, undo
+  the change in memory and show a toast.
+- **Page every list.** Supabase returns at most 1,000 rows per request by default and says nothing when it
+  cuts a result short. Load items per collection and comments per user with `.range()`, newest first, until
+  a page comes back short. Heavy users will have more than 1,000 likes.
 - **New async functions** for other people's data: friends' comments on a post, a friend's profile and
   library, friend requests.
+- **Comments on a post** are always requested as "comments on this verse by these users": the signed-in
+  user plus the friend ids already in memory, with `select=*,profiles(display_name)` to get names in the
+  same request. Never request a verse's comments without the user filter (see [Target](#target)).
+- **Generate ids in the browser** (`crypto.randomUUID()`) for comments and custom collections, so the
+  in-memory state and the database agree without a round trip.
 
 New localStorage format (version 2). Old data under `verse-feed:activity` is converted the first time the
 new code runs: `liked` becomes the Likes collection, `saved` becomes Saved, `text` snapshots and
@@ -208,7 +272,7 @@ tiles.
 
 - **Heart / double-tap** adds to Likes.
 - **Bookmark tap** adds to Saved. **Press and hold** opens a sheet to choose a collection or make a new one.
-- **A new library button** adds to Library (signed in only).
+- **A new "Add to Library" button** adds to Library (signed in only). In the schema the kind is `library`.
 - **The comments sheet** shows the commentary summaries, then comments from you and your friends with
   their display names. Signed out, it shows only your local comments, as now.
 
@@ -217,7 +281,7 @@ tiles.
 | Route | View |
 | --- | --- |
 | `#/u/<handle>` | A Bible author's profile (unchanged) |
-| `#/@<username>` | A user's profile: display name, username and Library. Friends only; others see the name and an "Add friend" button |
+| `#/@<username>` | A user's profile: display name, username, the friend button and, for friends, their Library |
 | `#/me[/tab]` | Your own private view: Likes, Saved, your collections, comments, friends and friend requests |
 | `#/signin` | Email, then code, then (first time) username and display name |
 
@@ -239,33 +303,82 @@ checkbox so they can be left out. Steps:
 
 1. Create any custom collections that don't exist yet (matched by name).
 2. Insert all collection items in one request, ignoring duplicates (`upsert` with `ignoreDuplicates`), so
-   running it twice is harmless.
-3. Insert the comments in one request. One request is one statement, so it either fully succeeds or fully
-   fails.
+   running it twice is harmless. Pass the original `at` as `added_at` so order is kept.
+3. Insert the comments in one request, with their original `at` as `created_at`. One request is one
+   statement, so it either fully succeeds or fully fails.
 4. Set `importedAt` locally. After that, this browser reads from the account while signed in.
 
 Settings also has an "Import from this browser" button for anyone who dismissed the prompt.
 
+### Search (`search.js`)
+
+Search gets a second field, **People**, next to the existing verse/book/author search. It is signed-in
+only. From 2 characters, debounced, it calls `rpc('search_profiles', { q })` and shows display name and
+username for up to 20 people; tapping a result opens `#/@username`. The match is fuzzy by design: it finds
+a word in either name that starts like, or is close to, what was typed. Exact usernames always match. See
+[Tests](#tests) for the timings.
+
 ### Friends
 
-- **Add a friend** by typing their exact username.
-- **Requests** (incoming and sent) are listed in `#/me`, with Accept, Decline and Cancel.
-- If you try to send a request to someone who has already sent you one, the database refuses it (one row
-  per pair). The app should show their request so you can accept it instead.
+Friendships are made from the other person's profile. Its one button shows the state of the pair and
+changes it:
+
+| State | Button | Pressing it |
+| --- | --- | --- |
+| No row | **Add friend** | Inserts a request from you |
+| You asked, not yet accepted | **Requested** | Cancels the request (deletes the row) |
+| They asked you | **Accept** | Sets `accepted` to true |
+| Accepted | **Friends** | Removes the friend (deletes the row), after a confirmation |
+
+- **Requests** (incoming and sent) are also listed in `#/me`, with Accept, Decline and Cancel.
+- The database keeps one row per pair, so a request to someone who has already asked you is refused;
+  the app shows the Accept state instead.
 
 ## Setting up Supabase
 
 1. **Create a Supabase project.** One project to start; previews and production can share it at first.
-2. **Commit the schema as a migration**: `supabase init` at the repo root, then put `schema.sql` in
-   `supabase/migrations/`. Apply it with `supabase db push`. The `tests/` folder can move to `supabase/tests/`.
-3. **Auth settings**: email sign-in on, with sign-in by code. Turn off every other provider. Change the email
-   templates to show `{{ .Token }}` (the code) instead of a link. Keep the code length at 6.
-4. **Email sending**: Supabase's built-in email is for testing and only sends a few emails an hour.
+2. **Commit the schema as a migration from day one**: `supabase init` at the repo root, move `schema.sql` to
+   `supabase/migrations/<timestamp>_init.sql` and this folder's `tests/` to `supabase/tests/`, and change
+   `run.sh` to apply `supabase/migrations/*.sql` so later migrations are tested too. Apply with
+   `supabase db push`.
+3. **Auth settings**: email sign-in on, with sign-in by code. Turn off every other provider. Change the
+   "Magic Link" and "Confirm signup" email templates to show `{{ .Token }}` (the code) instead of a link.
+   Keep the code length at 6 and shorten its lifetime from the default hour to 10 minutes.
+4. **Email sending**: Supabase's built-in email is for testing and sends only a couple of emails an hour.
    Connect a transactional email service through Supabase's SMTP settings before launch. Postmark or
    Amazon SES are options; pick one whose privacy terms you're comfortable with, since it sees email
-   addresses.
-5. **Privacy policy**: say what's stored (email, username, display name, likes, saves, comments,
+   addresses. At a million users expect tens of thousands of sign-in emails a day.
+5. **Bot protection**: turn on Supabase's captcha with Cloudflare Turnstile (privacy-friendly, no puzzles
+   for most people) on the sign-in form, so the email endpoint can't be used to spam addresses.
+6. **Compute**: start on the Pro plan's default instance. Nothing here is CPU-heavy, but a few hundred
+   million `collection_items` rows need disk, and the connection pooler should be on for the apps. Watch
+   the dashboard's slow-query report; any query over a few milliseconds means a policy or index changed.
+7. **Privacy policy**: say what's stored (email, username, display name, likes, saves, comments,
    friendships) and that Supabase keeps sign-in IP addresses in its auth logs.
+
+## Open source and the site
+
+The site is at **bibliofeed.net**, and the repository is to become public.
+
+- **The data stays with the owner.** The hosted Supabase project is the owner's; contributors run a local
+  stack (above) and never touch it. The project URL and public key in `web/js/config.js` are safe to
+  publish: RLS is the protection, not the key.
+- **Pull requests only into `main`, always reviewed by the owner.** `.github/CODEOWNERS` names the owner for
+  every file, and `.github/main-ruleset.json` is the GitHub rule for `main`: no direct pushes or force
+  pushes, one approving review that must come from a code owner, stale approvals dismissed on new pushes.
+  The owner can merge their own pull requests without a second reviewer; nobody else can. GitHub only
+  enforces rules on public repositories (or with a Pro plan), so apply it when the repository goes public:
+
+  ```sh
+  gh api repos/SebastienHiggs/bibliofeed/rulesets --input .github/main-ruleset.json
+  ```
+
+- **Two pages to write**, as static files in `web/`: `/about` (what the site is, where the text comes from,
+  what is stored about you) and `/contributing` (how to run the app and the local Supabase stack, how
+  changes are reviewed). The current `web/README.md` and this folder are the raw material. They are not part
+  of the backend work and can be done any time.
+- **A licence** for the code, and a `CONTRIBUTING.md` that points at `/contributing`. The Bible text is the
+  public-domain BSB and needs no licence.
 
 ## Android and iOS
 
@@ -291,41 +404,62 @@ study_members  (study_id, user_id, role, joined_at)
 study_messages (id, study_id, user_id, body text not null, created_at)  -- text only: no attachment column
 ```
 
-…plus an `is_member(study_id)` function built like `is_friend`, and Supabase Realtime for live messages.
-A verse shared into a study would use the same `(book, chapter, verse)` reference.
+…plus a `my_study_ids()` function built like `friend_ids`, used as `study_id in (select my_study_ids())`,
+and Supabase Realtime for live messages. A verse shared into a study would use the same
+`(book, chapter, verse)` reference.
 
 **Profile customisation** adds columns to `profiles` (and a Storage bucket if avatars are uploaded) in a new
 migration.
 
+**Blocking** turns `friendships.accepted` into a status column (`pending`, `accepted`, `blocked`) in one
+migration; the policies change in the same file.
+
 **Posts that aren't a single verse** (for example a passage like Psalm 23:1–3): add a nullable `verse_end`
 column. If posts ever stop being Bible text, add a `posts` table then.
 
+**Beyond a few years of comments**: at 52 million rows a year the comments table passes a few hundred
+million rows eventually. With only the one index and all queries keyed by user, that's still fine; if it
+ever isn't, partition `comments` by `created_at` year. Nothing in the app would notice.
+
 ## Things to verify
 
-These are Supabase specifics the local tests can't cover:
+These are Supabase specifics the local tests can't cover. Running the tests on `supabase start` (see
+[Tests](#tests)) covers the first.
 
-1. **`delete_my_account()`**: does a `security definer` function owned by the `postgres` role have
-   permission to delete from `auth.users` on a hosted project? If not, the alternative is an Edge Function
-   using the admin API. That would be the only server code.
-2. **Email templates for codes**: which templates need `{{ .Token }}`? Probably both "Magic Link" (existing
-   users) and "Confirm signup" (new users). Is the code length still 6 by default?
-3. **API keys**: Supabase has been moving from the `anon` key to "publishable" keys (`sb_publishable_…`).
-   Use whichever new projects get, and confirm it maps to the `anon` role.
-4. **Default grants**: the schema assumes new tables in `public` are granted to `anon` and `authenticated`,
-   and then revokes what it doesn't want. Check this matches a new project.
-5. **Self-hosting `supabase-js`**: the file name and path of its prebuilt browser bundle in `node_modules`.
-6. **Session key**: the exact localStorage key `supabase-js` uses for the session, so the app can detect a
-   signed-in user without loading the library.
-7. **Rate limits on code emails**: the defaults, and whether a captcha is needed before launch.
+1. **`delete_my_account()`**: a `security definer` function owned by `postgres` deleting from `auth.users`
+   is a widely used pattern and sessions cascade with the user, but confirm it on a real stack. If it
+   fails, the alternative is an Edge Function using the admin API. That would be the only server code.
+2. **API keys**: Supabase has been moving from the `anon` key to "publishable" keys (`sb_publishable_…`).
+   Use whichever new projects get; they map to the `anon` role.
+3. **Rate limits on code emails**: the defaults with custom SMTP, and the Turnstile setup.
 
-## Open questions for the owner
+## Decisions taken by the owner, 4 Oct 2026
 
-1. **The library's name.** Your shortlist: "Add to library", "Collect" (likely confused with collections),
-   "Shelve". Suggested: **Treasure** ("Where your treasure is…", Matthew 6:21; "Mary treasured up all these
-   things", Luke 2:19). Other ideas: Hide in my heart (Psalm 119:11), Highlight (clashes with the
-   carousel's verse highlight), Underline, Mark, Keep, Cherish. In the schema the collection kind is
-   `library` whatever the button says.
-2. **Who can see a profile**: should non-friends see your display name and an "Add friend" button (as
-   planned), or nothing until you're friends?
-3. **Reserved usernames** include common first names that are also Bible authors (`john`, `paul`,
-   `mark`, `james`, `peter`, ...). So a real person called John can't be `@john`. Is that OK?
+1. **The library button says "Add to Library".** (Alternatives considered: Collect, Shelve, Treasure.)
+2. **Profiles are visible to every signed-in user**, with the friend button on them, and people are found
+   through the search view by username or display name.
+3. **Bible author names are not reserved** as usernames.
+
+## Changes since the first draft
+
+From the review of 3–4 Oct 2026, with a target of a million users:
+
+- **Access rules rewritten for scale.** `is_friend(other)` (called once per row) became `friend_ids()`
+  (evaluated once per statement, and no longer `security definer`). Item policies check only the row's own
+  collection. `auth.uid()` is wrapped as `(select auth.uid())` throughout. Measured against 100,000 users;
+  see [Tests](#tests).
+- **Comments index** changed to `(user_id, book, chapter, verse)`, replacing the verse-only and user-only
+  indexes, and the app is required to always name the users whose comments it wants.
+- **Grants spelled out** instead of revoking from project defaults. One "thing to verify" removed.
+- **Bible author handles are no longer reserved usernames.** Only app and system names are.
+- **People search** added (`search_profiles()` over trigram indexes) and the **friend button's four
+  states** specified, at the owner's request.
+- **Open source**: how contributors test locally, the `main` branch rule, and the about and contributing
+  pages for bibliofeed.net.
+- **Session detection** uses the app's own flag, not `supabase-js`'s internal storage key.
+- **Paging** of items and comments, **client-generated ids**, and keeping original timestamps on import,
+  added to the front-end plan.
+- **Setup**: migrations from day one, tests on `supabase start`, Turnstile, shorter code lifetime, compute
+  notes.
+- **Tests**: 8 more rule checks (43), a scale probe (`tests/scale.sql`), and a `.gitattributes` so
+  `run.sh` keeps LF line endings on Windows checkouts.

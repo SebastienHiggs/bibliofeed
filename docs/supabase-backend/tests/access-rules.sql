@@ -27,7 +27,7 @@ set role authenticated;
 
 -- Profiles
 select t_as(:'A');
-select t_check('reserved usernames are refused', t_fails($$insert into profiles (username, display_name) values ('paul', 'P')$$));
+select t_check('reserved usernames are refused', t_fails($$insert into profiles (username, display_name) values ('admin', 'P')$$));
 select t_check('uppercase usernames are refused', t_fails($$insert into profiles (username, display_name) values ('Alice', 'A')$$));
 select t_check('cannot create a profile for someone else',
   t_fails(format($$insert into profiles (id, username, display_name) values (%L, 'bob', 'B')$$, :'B')));
@@ -35,6 +35,11 @@ insert into profiles (username, display_name) values ('alice', 'Alice');
 select t_as(:'B'); insert into profiles (username, display_name) values ('bob', 'Bob');
 select t_as(:'C'); insert into profiles (username, display_name) values ('carol', 'Carol');
 select t_check('cannot edit someone else''s profile', t_rows($$update profiles set display_name = 'x' where username = 'alice'$$) = 0);
+select t_check('cannot delete a profile directly', t_fails($$delete from profiles where username = 'carol'$$));
+select t_check('search finds people by username and by display name',
+  (select array_agg(username order by username) from search_profiles('car')) = '{carol}'
+  and (select array_agg(username order by username) from search_profiles('Ali')) = '{alice}'
+  and (select count(*) from search_profiles('zzzz')) = 0);
 
 -- Collections
 select t_as(:'A');
@@ -54,6 +59,7 @@ select t_check('cannot send a request as someone else',
   t_fails(format($$insert into friendships (requester, addressee) values (%L, %L)$$, :'B', :'C')));
 insert into friendships (addressee) values (:'B');
 select t_check('requester cannot accept their own request', t_rows('update friendships set accepted = true') = 0);
+select t_check('a pending request is not a friend', (select count(*) from friend_ids()) = 0);
 select t_as(:'C');
 select t_check('others cannot see a friendship', (select count(*) from friendships) = 0);
 select t_as(:'B');
@@ -61,8 +67,8 @@ select t_check('a reverse request for the same pair is refused',
   t_fails(format($$insert into friendships (addressee) values (%L)$$, :'A')));
 select t_check('cannot rewrite who a request is from', t_fails(format('update friendships set requester = %L', :'C')));
 select t_check('addressee can accept', t_rows('update friendships set accepted = true') = 1);
-select t_check('is_friend sees it both ways', is_friend(:'A'));
-select t_as(:'A'); select t_check('is_friend from the other side', is_friend(:'B'));
+select t_check('friend_ids sees it both ways', (select array_agg(f) from friend_ids() f) = array[:'A'::uuid]);
+select t_as(:'A'); select t_check('friend_ids from the other side', (select array_agg(f) from friend_ids() f) = array[:'B'::uuid]);
 
 -- Collection items and comments: A and B are friends, C is friends with no one.
 select t_as(:'A');
@@ -71,6 +77,8 @@ insert into collection_items (collection_id, book, chapter, verse)
 insert into comments (book, chapter, verse, body) values ('JHN', 3, 16, 'from A');
 select t_check('bad book codes are refused',
   t_fails($$insert into comments (book, chapter, verse, body) values ('John', 3, 16, 'x')$$));
+select t_check('cannot comment as someone else',
+  t_fails(format($$insert into comments (user_id, book, chapter, verse, body) values (%L, 'JHN', 3, 16, 'x')$$, :'B')));
 select t_as(:'C');
 insert into comments (book, chapter, verse, body) values ('JHN', 3, 16, 'from C');
 
@@ -84,6 +92,10 @@ select t_check('friend sees friend''s comments, not strangers''',
 select t_check('cannot add to a friend''s Library',
   t_fails(format($$insert into collection_items (collection_id, book, chapter, verse)
     select id, 'GEN', 1, 1 from collections where user_id = %L and kind = 'library'$$, :'A')));
+select t_check('cannot remove from a friend''s Library',
+  t_rows(format($$delete from collection_items where collection_id in (select id from collections where user_id = %L)$$, :'A')) = 0);
+select t_check('cannot rename a friend''s collection',
+  t_rows(format($$update collections set name = 'x' where user_id = %L$$, :'A')) = 0);
 select t_check('cannot delete a friend''s comment', t_rows($$delete from comments where body = 'from A'$$) = 0);
 select t_check('comments cannot be edited', t_fails($$update comments set body = 'x'$$));
 
@@ -96,7 +108,9 @@ select t_check('stranger sees no items', (select count(*) from collection_items)
 reset role; set role anon;
 select t_check('signed-out visitors cannot read profiles', t_fails('select * from profiles'));
 select t_check('signed-out visitors cannot read comments', t_fails('select * from comments'));
-select t_check('signed-out visitors cannot call is_friend', t_fails(format('select is_friend(%L)', :'A')));
+select t_check('signed-out visitors cannot call friend_ids', t_fails('select friend_ids()'));
+select t_check('signed-out visitors cannot search people', t_fails($$select search_profiles('a')$$));
+select t_check('signed-out visitors cannot delete an account', t_fails('select delete_my_account()'));
 
 -- Unfriending and deleting an account
 reset role; set role authenticated;
