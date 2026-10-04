@@ -191,12 +191,13 @@ export function renderPost(el, { book, chapter, verse, passage }) {
   preview.querySelector('.view-comments').addEventListener('click', () => openComments(post));
   // "View commentary · 3 comments", then the latest comment in the chapter (or the first commentary line).
   const drawPreview = async () => {
-    const commentary = await post.loadCommentary();
-    const chapterComments = activity.commentsInChapter(book.id, chapter);
-    const latest = chapterComments[chapterComments.length - 1];
-    const n = chapterComments.length;
+    const [commentary, friendComments] = await Promise.all([post.loadCommentary(), activity.friendsCommentsInChapter(book.id, chapter)]);
+    post.friendComments = friendComments;
+    const all = chapterComments(post);
+    const latest = all[all.length - 1];
+    const n = all.length;
     const line = latest
-      ? `<span class="user">you</span>${latest.verse !== verse.number ? `<span class="verse-tag">v. ${latest.verse}</span>` : ''}${esc(latest.comment)}`
+      ? `<span class="user">${latest.author ? esc(latest.author.displayName) : 'you'}</span>${latest.verse !== verse.number ? `<span class="verse-tag">v. ${latest.verse}</span>` : ''}${esc(latest.comment)}`
       : commentary[0] ? `<span class="user">${esc(commentary[0].handle)}</span>${esc(commentary[0].summary)}` : '';
     preview.innerHTML =
       `<button class="view-comments">View commentary${n ? ` · ${n} comment${n === 1 ? '' : 's'}` : ''}</button>` +
@@ -259,21 +260,27 @@ function cappedList(items, title, section, render, { tail = false } = {}) {
   return `<div class="comments-section-title">${title}</div>${tail ? more : ''}${shown.map(render).join('')}${tail ? '' : more}`;
 }
 
+// Yours have no `author` and can be deleted; a friend's shows their display name.
 function commentHtml(c, { verseTag = false } = {}) {
+  const name = c.author ? c.author.displayName : 'You';
   return `
     <div class="comment">
-      ${avatarHtml('You', { plain: true })}
+      ${avatarHtml(name, { plain: true })}
       <div class="comment-main">
-        <span class="user">you</span>${verseTag ? `<button class="verse-tag" data-verse="${c.verse}">v. ${c.verse}</button>` : ''}${esc(c.comment)}
-        <div class="comment-actions"><span>${timeAgo(c.at)}</span><button class="delete-comment" data-id="${c.id}">Delete</button></div>
+        <span class="user">${c.author ? esc(name) : 'you'}</span>${verseTag ? `<button class="verse-tag" data-verse="${c.verse}">v. ${c.verse}</button>` : ''}${esc(c.comment)}
+        <div class="comment-actions"><span>${timeAgo(c.at)}</span>${c.author ? '' : `<button class="delete-comment" data-id="${c.id}">Delete</button>`}</div>
       </div>
     </div>`;
 }
 
+// Everyone's comments on the post's chapter: yours from memory, friends' as fetched for this post.
+const chapterComments = (post) =>
+  [...activity.commentsInChapter(post.book.id, post.chapter), ...(post.friendComments || [])].sort((a, b) => a.at - b.at);
+
 function drawComments() {
   if (!currentPost) return;
   const { book, chapter, verse } = currentPost;
-  const all = activity.commentsInChapter(book.id, chapter);
+  const all = chapterComments(currentPost);
   const onVerse = all.filter((c) => c.verse === verse.number);
   const elsewhere = all.filter((c) => c.verse !== verse.number).sort((a, b) => a.verse - b.verse || a.at - b.at);
   commentsTabs.lastElementChild.textContent = all.length ? `Comments (${all.length})` : 'Comments';
@@ -377,6 +384,13 @@ export async function openComments(post, { focus = false } = {}) {
   openSheet(commentsBackdrop);
   panes.scrollTo({ left: 0 });
   if (focus) commentInput.focus();
+
+  // Friends' comments arrive (or refresh) while the sheet is open; redraw when they do.
+  activity.friendsCommentsInChapter(book.id, chapter).then((fc) => {
+    if (currentPost !== post) return;
+    post.friendComments = fc;
+    drawComments();
+  }).catch(console.error);
 
   const commentary = await post.loadCommentary();
   if (currentPost !== post) return;

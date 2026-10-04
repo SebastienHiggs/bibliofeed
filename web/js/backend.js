@@ -138,7 +138,33 @@ export async function fetchMyActivity() {
   return {
     collections: [...byId.values()],
     comments: comments.map((x) => ({ id: x.id, book: x.book, chapter: x.chapter, verse: x.verse, comment: x.body, at: Date.parse(x.created_at) })),
+    friends: await fetchFriendships(c),
   };
+}
+
+// Everyone you have a friendship row with (the rules only show your own), as
+// { id, username, displayName, accepted, incoming }. `incoming` means they asked you.
+async function fetchFriendships(c) {
+  const rows = unwrap(await c.from('friendships').select('requester, addressee, accepted'));
+  if (!rows.length) return [];
+  const others = rows.map((r) => (r.requester === me.id ? r.addressee : r.requester));
+  const profiles = unwrap(await c.from('profiles').select('id, username, display_name').in('id', others));
+  const byId = new Map(profiles.map((p) => [p.id, p]));
+  return rows.map((r) => {
+    const other = byId.get(r.requester === me.id ? r.addressee : r.requester);
+    return other && { id: other.id, username: other.username, displayName: other.display_name, accepted: r.accepted, incoming: r.addressee === me.id };
+  }).filter(Boolean);
+}
+
+// Comments by these people on one chapter. Always called with explicit ids
+// (the signed-in user's friends) so the cost follows the friend count, not the
+// chapter's popularity; see docs/supabase-backend/README.md.
+export async function commentsBy(userIds, bookId, chapter) {
+  if (!userIds.length) return [];
+  const c = await client();
+  const rows = unwrap(await c.from('comments').select('id, user_id, verse, body, created_at')
+    .in('user_id', userIds).eq('book', bookId).eq('chapter', chapter).order('created_at').limit(PAGE));
+  return rows.map((r) => ({ id: r.id, book: bookId, chapter, verse: r.verse, comment: r.body, at: Date.parse(r.created_at), userId: r.user_id }));
 }
 
 const iso = (ms) => new Date(ms).toISOString();

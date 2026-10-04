@@ -486,3 +486,7 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   meet again. The sheet became two panes (Commentary, Comments) with capped lists; see the decisions
   table. Verified: a comment on Deuteronomy 17:10 appears under "Elsewhere in Deuteronomy 17" when
   viewing 17:5, and its tag turns the carousel to the slide with verse 10.
+- **Friends' comments shown (4 Oct 2026)**, the first piece of the friends step. Friendships load with the
+  account; a chapter's friends' comments are fetched by naming the friends (one request per chapter,
+  remembered for a minute) and merged into the sheet and the preview line with display names. Friend
+  requests, the profile button and people search are still to come.

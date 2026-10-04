@@ -23,6 +23,7 @@ const empty = () => ({
   version: 2,
   collections: BUILTIN.map(([kind, name]) => ({ id: kind, kind, name, items: [] })),
   comments: [],
+  friends: [], // signed in only: everyone with a friendship row, accepted or pending
   importedAt: null, // set once this browser's data has been added to an account
 });
 
@@ -86,6 +87,7 @@ function persist(send, undo) {
 async function syncStore() {
   const user = backend.signedIn() ? backend.me.id : null;
   if (user === remote) return;
+  friendComments.clear();
   if (!user) {
     remote = null;
     state = loadLocal();
@@ -172,6 +174,26 @@ export const commentsFor = (key) =>
 // chapter's comments, so one on Ezra 5:10 is met from any verse of Ezra 5.
 export const commentsInChapter = (bookId, chapter) =>
   state.comments.filter((c) => c.book === bookId && c.chapter === chapter).sort((a, b) => a.at - b.at);
+
+// ---------- friends ----------
+
+export const friends = () => state.friends.filter((f) => f.accepted);
+
+// Your friends' comments on a chapter, each with its `author` profile. Fetched
+// from the account and remembered for a minute, so scrolling a feed doesn't
+// ask twice about the same chapter. Signed out there are no friends.
+const friendComments = new Map(); // "JHN.3" -> { at, comments }
+export async function friendsCommentsInChapter(bookId, chapter) {
+  if (!remote || !friends().length) return [];
+  const key = `${bookId}.${chapter}`;
+  const hit = friendComments.get(key);
+  if (hit && Date.now() - hit.at < 60_000) return hit.comments;
+  const byId = new Map(friends().map((f) => [f.id, f]));
+  const comments = (await backend.commentsBy([...byId.keys()], bookId, chapter))
+    .map(({ userId, ...c }) => ({ ...c, author: byId.get(userId) }));
+  friendComments.set(key, { at: Date.now(), comments });
+  return comments;
+}
 
 export function addComment(book, chapter, verse, text) {
   const comment = { id: newId(), book: book.id, chapter, verse: verse.number ?? verse, comment: text, at: Date.now() };
