@@ -37,6 +37,7 @@
     <div id="profile-view" hidden></div>
     <div id="account-view" hidden></div>
     <div id="search-view" hidden></div>
+    <div id="signin-view" hidden></div>
   </main>
 
   <!-- Single post opened from a grid or search -->
@@ -66,6 +67,18 @@
         <input type="text" placeholder="Add a comment…" aria-label="Add a comment" maxlength="1000" enterkeyhint="send">
         <button type="submit" disabled>Post</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Account settings: sign out, delete account -->
+  <div class="sheet-backdrop" id="settings-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 id="settings-title">Settings</h2>
+        <button class="icon-btn close-sheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body" id="settings-body"></div>
     </div>
   </div>
 

@@ -344,8 +344,10 @@ changes it:
 2. **Link the repo to it and apply the migration**: `supabase link --project-ref <ref>` then
    `supabase db push`, from `main`. (The schema has lived in `supabase/migrations/` since 4 Oct 2026.)
 3. **Auth settings**: email sign-in on, with sign-in by code. Turn off every other provider. Change the
-   "Magic Link" and "Confirm signup" email templates to show `{{ .Token }}` (the code) instead of a link.
-   Keep the code length at 6 and shorten its lifetime from the default hour to 10 minutes.
+   "Magic Link" and "Confirm signup" email templates to show `{{ .Token }}` (the code) instead of a link;
+   `supabase/templates/code.html` is the local stack's version and can be pasted in. (Confirmed locally:
+   without this change the email carries a link and no code.) Keep the code length at 6 and shorten its
+   lifetime from the default hour to 10 minutes.
 4. **Email sending**: Supabase's built-in email is for testing and sends only a couple of emails an hour.
    Connect a transactional email service through Supabase's SMTP settings before launch. Postmark or
    Amazon SES are options; pick one whose privacy terms you're comfortable with, since it sees email
@@ -466,3 +468,7 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   keeps LF line endings on Windows checkouts.
 - **Build step 1 done (4 Oct 2026)**: `supabase init`, the schema moved to `supabase/migrations/`, the tests
   to `supabase/tests/`, and the local stack configured and used to run them.
+- **Build step 2 done (4 Oct 2026)**: `web/js/backend.js` and `config.js`, the bundled supabase-js, the
+  `#/signin` flow (email, code, first-time username and display name), and Settings with sign out and
+  delete account. Walked through end to end against the local stack, including a taken username, a
+  returning user skipping the profile step, the session surviving a reload, and deletion cascading.

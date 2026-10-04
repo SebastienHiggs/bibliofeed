@@ -20,6 +20,8 @@ This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofe
 - **Follow**: authors you follow appear first in the stories row and make up about half of your feed.
 - **Search**: jump to a reference (`John 3:16`, `ps 23`, `1 cor 13 4`), a book or an author.
 - **Your activity** (top-right button): the posts you've saved, liked and commented on, and who you follow.
+- **Accounts**: sign in with your email and a 6-digit code (no password), choose a username and display
+  name, and sign out or delete your account from Settings. Signed out, everything still works as before.
 - **Comments**: add your own comments to any post, alongside the commentary summaries.
 - Double-tap to like, share/copy, infinite scroll, light/dark mode.
 
@@ -85,7 +87,8 @@ build command and root directory. Every push to another branch then gets its own
 | `index.html`, `styles.css` | Layout and styling |
 | `js/app.js` | Feed, stories row and routing between views |
 | `js/post.js` | A post: carousel, likes, saves, comments sheet, single-post view |
-| `js/profile.js`, `js/account.js`, `js/search.js` | The profile, your-activity and search views |
+| `js/profile.js`, `js/account.js`, `js/search.js` | The profile, your-activity (with Settings) and search views |
+| `js/signin.js` | Sign in: email, the 6-digit code, then a username and display name the first time |
 | `js/activity.js` | Your likes, saves, comments and follows (localStorage) |
 | `js/ui.js` | Shared helpers: icons, avatars, tiles, toasts, sheets |
 | `js/bible.js` | Loads chapters (bundled file → live API fallback) |

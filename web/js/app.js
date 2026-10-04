@@ -2,6 +2,7 @@
 //   #/               feed
 //   #/search         search
 //   #/me[/tab]       your saved / liked / commented posts
+//   #/signin         sign in with an email code
 //   #/u/<handle>[/BOOK]  an author's profile, optionally filtered to one book
 import { ALL_AUTHORS, handle, randomChapter, randomFromWorks, worksOf } from './books.js';
 import { getChapter } from './bible.js';
@@ -10,6 +11,7 @@ import { closeDetail, renderPost, skeletonHtml } from './post.js';
 import { hideProfile, showProfile } from './profile.js';
 import { hideAccount, showAccount } from './account.js';
 import { hideSearch, showSearch } from './search.js';
+import { hideSignin, showSignin } from './signin.js';
 import { avatarHtml, closeAllSheets, closeSheet, esc, profileHref } from './ui.js';
 
 const feedView = document.getElementById('feed-view');
@@ -97,12 +99,17 @@ function route() {
   const hash = location.hash;
   const profile = hash.match(/^#\/u\/(\w+)(?:\/(\w+))?/);
   const author = profile && authorByHandle.get(profile[1]);
-  const next = author ? 'profile' : hash.startsWith('#/me') ? 'me' : hash.startsWith('#/search') ? 'search' : 'feed';
+  const next = author ? 'profile'
+    : hash.startsWith('#/me') ? 'me'
+    : hash.startsWith('#/search') ? 'search'
+    : hash.startsWith('#/signin') ? 'signin'
+    : 'feed';
 
   if (current !== next || next === 'profile' || next === 'me') {
     hideProfile();
     hideAccount();
     hideSearch();
+    hideSignin();
     feedView.hidden = next !== 'feed';
   }
   current = next;
@@ -116,6 +123,9 @@ function route() {
   } else if (next === 'search') {
     setChrome('search', 'Search');
     showSearch();
+  } else if (next === 'signin') {
+    setChrome('signin', 'Sign in');
+    showSignin();
   } else {
     setChrome('feed', '');
     window.scrollTo({ top: feedScroll });
@@ -132,8 +142,8 @@ window.addEventListener('hashchange', () => {
   route();
 });
 topbarBack.addEventListener('click', (e) => {
-  // Your activity and Search are top-level pages: back always means the feed.
-  if (current === 'me' || current === 'search') return; // follows href="#/"
+  // Your activity, Search and Sign in are top-level pages: back always means the feed.
+  if (current === 'me' || current === 'search' || current === 'signin') return; // follows href="#/"
   if (depth > 0) {
     e.preventDefault();
     history.back();
