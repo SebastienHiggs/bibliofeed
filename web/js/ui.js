@@ -1,5 +1,6 @@
 // Small shared helpers: escaping, avatars, icons, toasts, sheets, grid tiles.
 import { handle } from './books.js';
+import { getChapter } from './bible.js';
 
 export const PALETTES = [
   'linear-gradient(135deg, #1e3c72, #2a5298)',
@@ -79,7 +80,9 @@ export function closeSheet(backdrop) {
 }
 export const closeAllSheets = () => document.querySelectorAll('.sheet-backdrop:not([hidden])').forEach(closeSheet);
 
-// A square grid tile for a verse. `onOpen` is called when it's tapped.
+// A square grid tile for a verse. `onOpen` is called when it's tapped. Without
+// `text` (saved activity keeps only references) the verse is looked up; each
+// book loads once and is cached, so a grid of hundreds costs a few requests.
 export function tileEl({ book, chapter, verse, text }, onOpen) {
   const ref = `${book.name} ${chapter}:${verse}`;
   const el = document.createElement('button');
@@ -87,9 +90,14 @@ export function tileEl({ book, chapter, verse, text }, onOpen) {
   el.style.setProperty('--slide-bg', PALETTES[hash(ref) % PALETTES.length]);
   el.setAttribute('aria-label', ref);
   el.innerHTML = `
-    <span class="tile-text">${esc(text)}</span>
+    <span class="tile-text">${esc(text || '')}</span>
     <span class="tile-ref">${esc(ref)}</span>
     <span class="tile-stack">${ICONS.stack}</span>`;
+  if (!text) {
+    getChapter(book, chapter)
+      .then((p) => { el.querySelector('.tile-text').textContent = p.verses.find((v) => v.number === verse)?.text || ''; })
+      .catch(() => { /* the tile still shows its reference */ });
+  }
   el.addEventListener('click', onOpen);
   return el;
 }

@@ -88,7 +88,7 @@ build command and root directory. Every push to another branch then gets its own
 | `js/post.js` | A post: carousel, likes, saves, comments sheet, single-post view |
 | `js/profile.js`, `js/account.js`, `js/search.js` | The profile, your-activity (with Settings) and search views |
 | `js/signin.js` | Sign in: email, the 6-digit code, then a username and display name the first time |
-| `js/activity.js` | Your likes, saves and comments (localStorage) |
+| `js/activity.js` | Your likes, saves, collections and comments: verse references only, in localStorage |
 | `js/ui.js` | Shared helpers: icons, avatars, tiles, toasts, sheets |
 | `js/bible.js` | Loads chapters (bundled file → live API fallback) |
 | `js/commentary.js` | Commentary summaries and study links |
