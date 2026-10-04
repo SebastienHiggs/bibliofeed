@@ -4,9 +4,8 @@
 //   #/me[/tab]       your saved / liked / commented posts
 //   #/signin         sign in with an email code
 //   #/u/<handle>[/BOOK]  an author's profile, optionally filtered to one book
-import { ALL_AUTHORS, handle, randomChapter, randomFromWorks, worksOf } from './books.js';
+import { ALL_AUTHORS, handle, randomChapter } from './books.js';
 import { getChapter } from './bible.js';
-import * as activity from './activity.js';
 import { closeDetail, renderPost, skeletonHtml } from './post.js';
 import { hideProfile, showProfile } from './profile.js';
 import { hideAccount, showAccount } from './account.js';
@@ -21,13 +20,7 @@ const topbarBack = document.getElementById('topbar-back');
 const authorByHandle = new Map(ALL_AUTHORS.map((a) => [handle(a), a]));
 
 // ---------- feed ----------
-
-// Half the feed comes from authors you follow, if you follow anyone.
-function pickChapter() {
-  const follows = activity.following();
-  if (follows.size && Math.random() < 0.5) return randomFromWorks([...follows].flatMap(worksOf));
-  return randomChapter();
-}
+// Fully random: any chapter (all equally likely), then any verse in it.
 
 async function addPost() {
   const el = document.createElement('article');
@@ -36,7 +29,7 @@ async function addPost() {
   feed.append(el);
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    const { book, chapter } = pickChapter();
+    const { book, chapter } = randomChapter();
     try {
       const passage = await getChapter(book, chapter);
       if (!passage.verses.length) continue;
@@ -66,18 +59,14 @@ new IntersectionObserver((entries) => {
   if (entries.some((e) => e.isIntersecting)) loadMore();
 }, { rootMargin: '600px' }).observe(sentinel);
 
-// ---------- stories (authors, followed first) ----------
+// ---------- stories (every author, in a fixed order) ----------
 
 function renderStories() {
-  const follows = activity.following();
-  const authors = [...ALL_AUTHORS]
+  document.getElementById('stories').innerHTML = ALL_AUTHORS
     .filter((a) => a !== 'Unknown')
-    .sort((a, b) => follows.has(b) - follows.has(a));
-  document.getElementById('stories').innerHTML = authors
     .map((a) => `<a class="story" href="${profileHref(a)}">${avatarHtml(a)}<span class="story-name">${esc(handle(a))}</span></a>`)
     .join('');
 }
-activity.onChange(renderStories);
 
 // ---------- routing ----------
 

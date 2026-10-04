@@ -1,10 +1,9 @@
-// Your account page: saved, liked and commented posts, who you follow, and
-// (signed in) your settings: sign out and delete account.
-import { handle } from './books.js';
+// Your account page: saved, liked and commented posts, and (signed in) your
+// settings: sign out and delete account.
 import * as activity from './activity.js';
 import * as backend from './backend.js';
 import { onDetailClose, openPosts } from './post.js';
-import { ICONS, avatarHtml, closeSheet, esc, openSheet, profileHref, tileEl, toast } from './ui.js';
+import { ICONS, avatarHtml, closeSheet, esc, openSheet, tileEl, toast } from './ui.js';
 
 const view = document.getElementById('account-view');
 const settingsBackdrop = document.getElementById('settings-backdrop');
@@ -51,7 +50,6 @@ function identityHtml() {
 }
 
 function render() {
-  const follows = [...activity.following()];
   const posts = TABS[tab].list();
   const name = backend.me?.profile?.displayName || 'You';
   view.innerHTML = `
@@ -66,11 +64,6 @@ function render() {
       </div>
       ${identityHtml()}
     </header>
-    <div class="section-label">Following</div>
-    ${follows.length
-      ? `<div class="highlights">${follows.map((a) => `
-          <a class="highlight" href="${profileHref(a)}">${avatarHtml(a)}<span class="hl-name">${esc(handle(a))}</span></a>`).join('')}</div>`
-      : '<p class="hint-row">Follow authors from their profiles to see more of them in your feed.</p>'}
     <nav class="profile-tabs account-tabs">
       ${Object.entries(TABS).map(([id, t]) => `<a class="${id === tab ? 'on' : ''}" href="#/me/${id}" aria-label="${t.label}">${t.icon}</a>`).join('')}
     </nav>

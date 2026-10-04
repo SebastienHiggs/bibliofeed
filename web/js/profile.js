@@ -1,7 +1,6 @@
-// Author profile: bio, stats, follow, per-book filter and a grid of verses.
+// Author profile: bio, stats, per-book filter and a grid of verses.
 import { AUTHORS, handle, randomFromWorks, worksOf } from './books.js';
 import { getChapter } from './bible.js';
-import * as activity from './activity.js';
 import { openPosts } from './post.js';
 import { ICONS, avatarHtml, esc, tileEl, toast } from './ui.js';
 
@@ -40,7 +39,6 @@ export function showProfile(author, bookId) {
       <p class="profile-bio">${esc(info.bio)}</p>
       <div class="profile-books">${ICONS.book}<span>${works.map((w) => esc(workName(w))).join(', ')}</span></div>
       <div class="profile-buttons">
-        <button class="follow-btn"></button>
         <button class="secondary-btn share-profile">Share profile</button>
       </div>
     </header>
@@ -56,19 +54,6 @@ export function showProfile(author, bookId) {
   view.hidden = false;
   window.scrollTo({ top: 0 });
 
-  const followBtn = view.querySelector('.follow-btn');
-  const drawFollow = () => {
-    const on = activity.isFollowing(author);
-    followBtn.classList.toggle('following', on);
-    followBtn.textContent = on ? 'Following' : 'Follow';
-  };
-  drawFollow();
-  followBtn.addEventListener('click', () => {
-    const on = !activity.isFollowing(author);
-    activity.setFollowing(author, on);
-    drawFollow();
-    toast(on ? `You’ll see more from ${handle(author)} in your feed` : `Unfollowed ${handle(author)}`);
-  });
   view.querySelector('.share-profile').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(location.href);

@@ -1,4 +1,4 @@
-// Your own activity: likes, saves, comments and follows.
+// Your own activity: likes, saves and comments.
 // Kept in this browser's localStorage; there are no accounts yet.
 import { BOOKS } from './books.js';
 
@@ -9,9 +9,9 @@ const bookById = new Map(BOOKS.map((b) => [b.id, b]));
 function load() {
   try {
     const data = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { liked: {}, saved: {}, comments: [], following: [], ...data };
+    return { liked: {}, saved: {}, comments: [], ...data };
   } catch {
-    return { liked: {}, saved: {}, comments: [], following: [] };
+    return { liked: {}, saved: {}, comments: [] };
   }
 }
 let state = load();
@@ -71,14 +71,6 @@ export function commentedPosts() {
   return newestFirst([...latest.values()]);
 }
 export const commentCount = () => state.comments.length;
-
-export const following = () => new Set(state.following);
-export const isFollowing = (author) => state.following.includes(author);
-export function setFollowing(author, on) {
-  state.following = state.following.filter((a) => a !== author);
-  if (on) state.following.push(author);
-  commit();
-}
 
 // Pick up changes made in other tabs.
 window.addEventListener('storage', (e) => {

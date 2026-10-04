@@ -250,8 +250,6 @@ a.story { color: inherit; text-decoration: none; }
 .profile-books { font-size: 13px; color: var(--link); }
 .profile-buttons { display: flex; gap: 8px; margin-top: 14px; }
 .profile-buttons button { flex: 1; padding: 7px 0; border-radius: 8px; font-weight: 600; background: var(--skeleton); }
-.follow-btn { background: var(--accent) !important; color: #fff; }
-.follow-btn.following { background: var(--skeleton) !important; color: var(--text); }
 
 .highlights { display: flex; gap: 16px; overflow-x: auto; padding: 10px 16px 14px; scrollbar-width: none; }
 .highlights::-webkit-scrollbar { display: none; }
