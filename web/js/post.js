@@ -88,6 +88,7 @@ export function renderPost(el, { book, chapter, verse, passage }) {
       <button class="icon-btn share-btn" aria-label="Share">${ICONS.share}</button>
       <div class="dots"></div>
       <span class="spacer"></span>
+      <button class="icon-btn library-btn${activity.inLibrary(key) ? ' in-library' : ''}" aria-label="Add to Library" title="Add to Library">${ICONS.library}</button>
       <button class="icon-btn save-btn${activity.isSaved(key) ? ' saved' : ''}" aria-label="Save">${ICONS.save}</button>
     </div>
     <div class="post-body">
@@ -154,6 +155,18 @@ export function renderPost(el, { book, chapter, verse, passage }) {
     const on = e.currentTarget.classList.toggle('saved');
     activity.setSaved(book, chapter, verse, on);
     toast(on ? 'Saved' : 'Removed from saved');
+  });
+
+  // The Library is the part of your account friends can see, so it needs an account.
+  el.querySelector('.library-btn').addEventListener('click', (e) => {
+    if (!activity.hasLibrary()) {
+      toast('Sign in to build a Library your friends can see');
+      if (backend.configured) location.hash = '#/signin';
+      return;
+    }
+    const on = e.currentTarget.classList.toggle('in-library');
+    activity.setInLibrary(book, chapter, verse, on);
+    toast(on ? 'Added to your Library' : 'Removed from your Library');
   });
 
   el.querySelector('.share-btn').addEventListener('click', async () => {

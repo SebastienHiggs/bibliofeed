@@ -134,6 +134,10 @@ export function setInCollection(id, book, chapter, verse, on) {
 }
 export const setLiked = (book, chapter, verse, on) => setInCollection(byKind('likes')?.id, book, chapter, verse, on);
 export const setSaved = (book, chapter, verse, on) => setInCollection(byKind('saved')?.id, book, chapter, verse, on);
+// The Library exists only in accounts: it's the collection friends can see.
+export const hasLibrary = () => Boolean(byKind('library'));
+export const inLibrary = (key) => inCollection(byKind('library')?.id, key);
+export const setInLibrary = (book, chapter, verse, on) => setInCollection(byKind('library')?.id, book, chapter, verse, on);
 
 export function createCollection(name) {
   const c = { id: newId(), kind: 'custom', name, items: [] };
