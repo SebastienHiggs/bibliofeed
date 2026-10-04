@@ -178,6 +178,35 @@ export const commentsInChapter = (bookId, chapter) =>
 // ---------- friends ----------
 
 export const friends = () => state.friends.filter((f) => f.accepted);
+export const friendRequests = () => state.friends.filter((f) => !f.accepted); // incoming and sent
+export const friendshipWith = (userId) => state.friends.find((f) => f.id === userId) || null;
+
+export function requestFriend({ id, username, displayName }) {
+  if (!remote || friendshipWith(id)) return;
+  const before = state.friends;
+  state.friends = [...state.friends, { id, username, displayName, accepted: false, incoming: false }];
+  commit();
+  persist(() => backend.friendships.request(id), () => { state.friends = before; });
+}
+export function acceptFriend(userId) {
+  const f = friendshipWith(userId);
+  if (!f || f.accepted || !f.incoming) return;
+  const before = state.friends;
+  state.friends = state.friends.map((x) => (x === f ? { ...x, accepted: true } : x));
+  friendComments.clear(); // their comments are visible now
+  commit();
+  persist(() => backend.friendships.accept(userId), () => { state.friends = before; });
+}
+// Declines, cancels or unfriends: all the same row going away.
+export function removeFriend(userId) {
+  const f = friendshipWith(userId);
+  if (!f) return;
+  const before = state.friends;
+  state.friends = state.friends.filter((x) => x !== f);
+  friendComments.clear();
+  commit();
+  persist(() => backend.friendships.remove(userId, f.incoming), () => { state.friends = before; });
+}
 
 // Your friends' comments on a chapter, each with its `author` profile. Fetched
 // from the account and remembered for a minute, so scrolling a feed doesn't

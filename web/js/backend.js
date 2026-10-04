@@ -181,6 +181,32 @@ export const activity = {
   deleteCollection: async (id) => unwrap(await (await client()).from('collections').delete().eq('id', id)),
 };
 
+// ---------- other people ----------
+
+export async function profileByUsername(username) {
+  const c = await client();
+  const row = unwrap(await c.from('profiles').select('id, username, display_name').eq('username', username).maybeSingle());
+  return row && { id: row.id, username: row.username, displayName: row.display_name };
+}
+
+// A friend's Library items, newest first. The rules only return a friend's.
+export async function libraryOf(userId) {
+  const c = await client();
+  const lib = unwrap(await c.from('collections').select('id').eq('user_id', userId).eq('kind', 'library').maybeSingle());
+  if (!lib) return [];
+  const rows = await allRows(() => c.from('collection_items').select('book, chapter, verse, added_at').eq('collection_id', lib.id)
+    .order('added_at', { ascending: false }).order('book').order('chapter').order('verse'));
+  return rows.map((r) => ({ book: r.book, chapter: r.chapter, verse: r.verse, at: Date.parse(r.added_at) }));
+}
+
+// The friendship row is (requester, addressee); `incoming` means they asked me.
+export const friendships = {
+  request: async (addressee) => unwrap(await (await client()).from('friendships').insert({ addressee })),
+  accept: async (requester) => unwrap(await (await client()).from('friendships').update({ accepted: true }).match({ requester, addressee: me.id })),
+  remove: async (other, incoming) =>
+    unwrap(await (await client()).from('friendships').delete().match(incoming ? { requester: other, addressee: me.id } : { requester: me.id, addressee: other })),
+};
+
 // Deletes the account and everything it owns (the database cascades).
 export async function deleteAccount() {
   const c = await client();

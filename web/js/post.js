@@ -258,11 +258,12 @@ function cappedList(items, title, section, render, { tail = false } = {}) {
 // Yours have no `author` and can be deleted; a friend's shows their display name.
 function commentHtml(c, { verseTag = false } = {}) {
   const name = c.author ? c.author.displayName : 'You';
+  const who = c.author ? `<a class="user" href="#/@${esc(c.author.username)}">${esc(name)}</a>` : '<span class="user">you</span>';
   return `
     <div class="comment">
-      ${avatarHtml(name, { plain: true })}
+      ${c.author ? `<a href="#/@${esc(c.author.username)}">${avatarHtml(name, { plain: true })}</a>` : avatarHtml(name, { plain: true })}
       <div class="comment-main">
-        <span class="user">${c.author ? esc(name) : 'you'}</span>${verseTag ? `<button class="verse-tag" data-verse="${c.verse}">v. ${c.verse}</button>` : ''}${esc(c.comment)}
+        ${who}${verseTag ? `<button class="verse-tag" data-verse="${c.verse}">v. ${c.verse}</button>` : ''}${esc(c.comment)}
         <div class="comment-actions"><span>${timeAgo(c.at)}</span>${c.author ? '' : `<button class="delete-comment" data-id="${c.id}">Delete</button>`}</div>
       </div>
     </div>`;

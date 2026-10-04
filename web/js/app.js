@@ -4,6 +4,7 @@
 //   #/me[/tab]       your saved / liked / commented posts
 //   #/signin         sign in with an email code
 //   #/u/<handle>[/BOOK]  an author's profile, optionally filtered to one book
+//   #/@<username>    another person's profile
 import { ALL_AUTHORS, handle, randomChapter } from './books.js';
 import { getChapter } from './bible.js';
 import { closeDetail, renderPost, skeletonHtml } from './post.js';
@@ -11,6 +12,7 @@ import { hideProfile, showProfile } from './profile.js';
 import { hideAccount, showAccount } from './account.js';
 import { hideSearch, showSearch } from './search.js';
 import { hideSignin, showSignin } from './signin.js';
+import { hideUser, showUser } from './user.js';
 import { avatarHtml, closeAllSheets, closeSheet, esc, profileHref } from './ui.js';
 
 const feedView = document.getElementById('feed-view');
@@ -88,14 +90,17 @@ function route() {
   const hash = location.hash;
   const profile = hash.match(/^#\/u\/(\w+)(?:\/(\w+))?/);
   const author = profile && authorByHandle.get(profile[1]);
+  const person = hash.match(/^#\/@([a-z0-9_]+)/);
   const next = author ? 'profile'
+    : person ? 'user'
     : hash.startsWith('#/me') ? 'me'
     : hash.startsWith('#/search') ? 'search'
     : hash.startsWith('#/signin') ? 'signin'
     : 'feed';
 
-  if (current !== next || next === 'profile' || next === 'me') {
+  if (current !== next || next === 'profile' || next === 'user' || next === 'me') {
     hideProfile();
+    hideUser();
     hideAccount();
     hideSearch();
     hideSignin();
@@ -106,6 +111,9 @@ function route() {
   if (next === 'profile') {
     setChrome('profile', handle(author));
     showProfile(author, profile[2]);
+  } else if (next === 'user') {
+    setChrome('user', `@${person[1]}`);
+    showUser(person[1]);
   } else if (next === 'me') {
     setChrome('me', 'Your activity');
     showAccount(hash.split('/')[2]);

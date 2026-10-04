@@ -361,6 +361,7 @@ a.highlight .avatar { --size: 60px; font-size: 20px; margin: 0 auto 4px; display
 .primary-btn:disabled, .secondary-btn:disabled { opacity: .5; cursor: default; }
 a.primary-btn:hover { text-decoration: none; }
 .profile-buttons > a { flex: 1; }
+.profile-buttons .primary-btn { background: var(--accent); color: #fff; }
 .link { color: var(--accent); font-weight: 600; }
 
 /* ---------- Sign in ---------- */
