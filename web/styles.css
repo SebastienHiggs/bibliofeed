@@ -409,6 +409,24 @@ a.primary-btn:hover { text-decoration: none; }
 .verse-tag { color: var(--link); font-weight: 600; font-size: 12px; margin-right: 5px; }
 .preview-comment .verse-tag { margin-right: 4px; }
 
+/* ---------- Collections sheet ---------- */
+.menu-item.collection-row { display: flex; align-items: center; gap: 12px; }
+.collection-row .check { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.collection-row .check svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; display: none; }
+.collection-row.on .check { background: var(--accent); border-color: var(--accent); }
+.collection-row.on .check svg { display: block; }
+.collection-row .collection-name { flex: 1; }
+.collection-row small { color: var(--muted); font-weight: 400; }
+.new-collection { color: var(--accent); }
+.collection-form { display: flex; gap: 8px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
+.collection-form input { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 16px; }
+
+.collection-chips { padding-bottom: 8px; }
+.collection-chips .hl-ring b svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.collection-tools { margin-top: 0; }
+.link.danger { color: var(--like); }
+.chips-form { margin: 10px 16px 6px; border-top: 0; padding: 0; }
+
 /* ---------- Settings sheet ---------- */
 .settings-who { color: var(--muted); margin: 4px 0 8px; }
 .menu-item { display: block; width: 100%; text-align: left; padding: 14px 0; border-top: 1px solid var(--border); font-weight: 600; }

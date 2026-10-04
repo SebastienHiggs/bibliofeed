@@ -10,13 +10,43 @@ const settingsBackdrop = document.getElementById('settings-backdrop');
 const settingsBody = document.getElementById('settings-body');
 
 const TABS = {
-  saved: { icon: ICONS.save, label: 'Saved', list: activity.savedPosts, empty: 'Tap the bookmark on any post to save it here.' },
+  saved: { icon: ICONS.save, label: 'Saved', list: () => activity.collectionPosts(selectedCollection().id), empty: 'Tap the bookmark on any post to save it here. Hold it to save into a collection.' },
   liked: { icon: ICONS.heart, label: 'Liked', list: activity.likedPosts, empty: 'Posts you like (tap the heart or double-tap) show up here.' },
   comments: { icon: ICONS.comment, label: 'Comments', list: activity.commentedPosts, empty: 'Posts you comment on show up here.' },
   friends: { icon: ICONS.people, label: 'Friends', signedIn: true },
 };
 const tabs = () => Object.entries(TABS).filter(([, t]) => !t.signedIn || backend.signedIn());
 let tab = 'saved';
+
+// The Saved tab shows one collection at a time: Saved, one of your own, or (signed in) your Library.
+let collectionId = null;   // null means Saved
+let editing = null;        // 'new' | a collection id being renamed | null
+const shown = () => activity.collections().filter((c) => c.kind !== 'likes');
+function selectedCollection() {
+  return shown().find((c) => c.id === collectionId) || shown().find((c) => c.kind === 'saved') || { id: null, kind: 'saved', name: 'Saved', count: 0 };
+}
+
+const abbrev = (name) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+
+function chipsHtml() {
+  const current = selectedCollection();
+  const chip = (c) => `
+    <button class="highlight${c.id === current.id ? ' on' : ''}" data-collection="${c.id}">
+      <span class="hl-ring"><b>${c.kind === 'library' ? ICONS.library : esc(abbrev(c.name))}</b></span><span class="hl-name">${esc(c.name)}</span>
+    </button>`;
+  const form = (value, placeholder) => `
+    <form class="collection-form chips-form"><input name="name" maxlength="40" required placeholder="${placeholder}" value="${esc(value)}" autocomplete="off">
+      <button class="primary-btn small" type="submit">${value ? 'Rename' : 'Create'}</button><button class="secondary-btn small" type="button" data-cancel>Cancel</button></form>`;
+  if (editing === 'new') return form('', 'New collection name');
+  if (editing) return form(current.name, 'Collection name');
+  return `
+    <div class="highlights collection-chips">
+      ${shown().map(chip).join('')}
+      <button class="highlight" data-collection="new"><span class="hl-ring"><b>+</b></span><span class="hl-name">New</span></button>
+    </div>
+    ${current.kind === 'custom' ? `<p class="hint-row collection-tools"><button class="link" data-rename>Rename</button> · <button class="link danger" data-delete>Delete</button></p>`
+      : current.kind === 'library' ? '<p class="hint-row">Your Library is what friends see on your profile.</p>' : ''}`;
+}
 
 export function showAccount(which) {
   tab = TABS[which] ? which : 'saved';
@@ -96,14 +126,58 @@ function render() {
     <nav class="profile-tabs account-tabs">
       ${tabs().map(([id, x]) => `<a class="${id === active ? 'on' : ''}" href="#/me/${id}" aria-label="${x.label}">${x.icon}</a>`).join('')}
     </nav>
+    ${active === 'saved' && activity.loaded() ? chipsHtml() : ''}
     ${!activity.loaded() ? '<div class="sentinel"><div class="spinner"></div></div>'
       : active === 'friends' ? friendsHtml()
-      : posts.length ? '<div class="grid" id="account-grid"></div>' : `<p class="empty">${TABS[active].empty}</p>`}`;
+      : posts.length ? '<div class="grid" id="account-grid"></div>'
+      : `<p class="empty">${active === 'saved' && selectedCollection().kind !== 'saved' ? `Nothing in ${esc(selectedCollection().name)} yet.` : TABS[active].empty}</p>`}`;
 
   const grid = view.querySelector('#account-grid');
-  if (grid) posts.forEach((p, i) => grid.append(tileEl(p, () => openPosts(posts, i, { title: TABS[active].label, subtitle: name }))));
+  const title = active === 'saved' ? selectedCollection().name : TABS[active].label;
+  if (grid) posts.forEach((p, i) => grid.append(tileEl(p, () => openPosts(posts, i, { title, subtitle: name }))));
   view.querySelector('.open-settings')?.addEventListener('click', openSettings);
+  view.querySelector('.chips-form input')?.focus();
 }
+
+// Collection chips: pick one, start a new one, rename or delete the current one.
+view.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-collection]');
+  if (chip) {
+    if (chip.dataset.collection === 'new') editing = 'new';
+    else collectionId = chip.dataset.collection;
+    render();
+  } else if (e.target.closest('[data-rename]')) {
+    editing = selectedCollection().id;
+    render();
+  } else if (e.target.closest('[data-cancel]')) {
+    editing = null;
+    render();
+  } else if (e.target.closest('[data-delete]')) {
+    const btn = e.target.closest('[data-delete]');
+    if (!btn.classList.contains('confirm')) {
+      btn.classList.add('confirm');
+      btn.textContent = 'Delete this collection?';
+      setTimeout(() => { btn.classList.remove('confirm'); btn.textContent = 'Delete'; }, 4000);
+      return;
+    }
+    const c = selectedCollection();
+    activity.deleteCollection(c.id);
+    collectionId = null;
+    toast(`Deleted ${c.name}`);
+    render();
+  }
+});
+view.addEventListener('submit', (e) => {
+  const form = e.target.closest('.chips-form');
+  if (!form) return;
+  e.preventDefault();
+  const name = form.name.value.trim();
+  if (!name) return;
+  if (editing === 'new') collectionId = activity.createCollection(name);
+  else activity.renameCollection(editing, name);
+  editing = null;
+  render();
+});
 
 view.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-action]');

@@ -493,3 +493,6 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   button and a friend's Library; a Friends tab on your activity page listing requests (Accept/Decline),
   sent requests (Cancel) and friends; and the People tab in Search calling `search_profiles`. All
   exercised against the local stack with the rows checked in the database.
+- **Build step 6 done (4 Oct 2026)**: the "Add to Library" button on posts; hold or right-click the
+  bookmark for the collections sheet (Saved, your collections, New collection); and collection chips on
+  the Saved tab (Saved, each of yours, Library) with rename and delete. Verified on the local stack.

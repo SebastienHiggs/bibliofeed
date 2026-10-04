@@ -18,7 +18,11 @@ This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofe
   grid's posts in the same order, starting from that one.
   Profiles have shareable URLs like `#/u/paul` or `#/u/moses/EXO`.
 - **Search**: jump to a reference (`John 3:16`, `ps 23`, `1 cor 13 4`), a book or an author.
-- **Your activity** (top-right button): the posts you've saved, liked and commented on.
+- **Your activity** (top-right button): the posts you've saved, liked and commented on. Saves can go into
+  named collections: hold the bookmark on a post (or right-click it) to pick one or make one, and switch
+  between them on the Saved tab, where they can be renamed and deleted.
+- **Library** (signed in): the Add to Library button beside the bookmark puts a verse where your friends
+  can see it, on your profile.
 - **Accounts**: sign in with your email and a 6-digit code (no password), choose a username and display
   name, and sign out or delete your account from Settings. Signed in, your likes, saves and comments belong
   to your account and follow you across devices. Signed out, everything still works as before, in this
