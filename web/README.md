@@ -20,7 +20,9 @@ This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofe
 - **Search**: jump to a reference (`John 3:16`, `ps 23`, `1 cor 13 4`), a book or an author.
 - **Your activity** (top-right button): the posts you've saved, liked and commented on.
 - **Accounts**: sign in with your email and a 6-digit code (no password), choose a username and display
-  name, and sign out or delete your account from Settings. Signed out, everything still works as before.
+  name, and sign out or delete your account from Settings. Signed in, your likes, saves and comments belong
+  to your account and follow you across devices. Signed out, everything still works as before, in this
+  browser only.
 - **Comments**: add your own comments to any post, alongside the commentary summaries.
 - Double-tap to like, share/copy, infinite scroll, light/dark mode.
 
@@ -55,6 +57,10 @@ security decides who may see what. The plan and the schema are in
   empty, the app has no accounts and works exactly as it did before.
 - **`js/backend.js`** is the only module that talks to Supabase. Signed out, the app never loads the
   Supabase library or makes a request.
+- **`js/activity.js`** is one synchronous store with two homes. Signed out it's localStorage. Signed in,
+  the account's collections and comments are loaded into memory at startup (in pages, since the API caps
+  a response at 1,000 rows), reads come from memory, and each change is applied in memory first, then sent
+  to Supabase and undone with a toast if that fails.
 - **supabase-js is bundled** from `node_modules` into `dist/vendor/` by the build, so no third-party CDN
   sees visitors' requests.
 - **Developing against the local stack**: `npx supabase start` at the repo root, then put the URL and key
@@ -88,7 +94,7 @@ build command and root directory. Every push to another branch then gets its own
 | `js/post.js` | A post: carousel, likes, saves, comments sheet, single-post view |
 | `js/profile.js`, `js/account.js`, `js/search.js` | The profile, your-activity (with Settings) and search views |
 | `js/signin.js` | Sign in: email, the 6-digit code, then a username and display name the first time |
-| `js/activity.js` | Your likes, saves, collections and comments: verse references only, in localStorage |
+| `js/activity.js` | Your likes, saves, collections and comments: verse references only, in localStorage or your account |
 | `js/ui.js` | Shared helpers: icons, avatars, tiles, toasts, sheets |
 | `js/bible.js` | Loads chapters (bundled file → live API fallback) |
 | `js/commentary.js` | Commentary summaries and study links |

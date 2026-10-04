@@ -472,3 +472,7 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   `#/signin` flow (email, code, first-time username and display name), and Settings with sign out and
   delete account. Walked through end to end against the local stack, including a taken username, a
   returning user skipping the profile step, the session surviving a reload, and deletion cascading.
+- **Build step 3 done (4 Oct 2026)**: following removed; `activity.js` moved to the collections format
+  (version 2, with the one-time upgrade of old data) and became two stores behind one interface. Verified
+  against the local stack: likes, saves and comments written while signed in appear in the database with
+  client-generated ids, reload from the account, and the browser's own data returns on sign-out.

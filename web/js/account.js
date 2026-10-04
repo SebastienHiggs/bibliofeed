@@ -67,10 +67,11 @@ function render() {
     <nav class="profile-tabs account-tabs">
       ${Object.entries(TABS).map(([id, t]) => `<a class="${id === tab ? 'on' : ''}" href="#/me/${id}" aria-label="${t.label}">${t.icon}</a>`).join('')}
     </nav>
-    ${posts.length ? '<div class="grid" id="account-grid"></div>' : `<p class="empty">${TABS[tab].empty}</p>`}`;
+    ${!activity.loaded() ? '<div class="sentinel"><div class="spinner"></div></div>'
+      : posts.length ? '<div class="grid" id="account-grid"></div>' : `<p class="empty">${TABS[tab].empty}</p>`}`;
 
   const grid = view.querySelector('#account-grid');
-  posts.forEach((p, i) => grid.append(tileEl(p, () => openPosts(posts, i, { title: TABS[tab].label, subtitle: name }))));
+  if (grid) posts.forEach((p, i) => grid.append(tileEl(p, () => openPosts(posts, i, { title: TABS[tab].label, subtitle: name }))));
   view.querySelector('.open-settings')?.addEventListener('click', openSettings);
 }
 
@@ -115,5 +116,6 @@ settingsBody.addEventListener('click', async (e) => {
 
 // Unliking or unsaving from the single-post view should update the grid behind it.
 onDetailClose(() => { if (!view.hidden) render(); });
-// Signing in or out (here or in another tab) changes the header.
+// Signing in or out changes the header; the account's activity arriving fills the grid.
 backend.onChange(() => { if (!view.hidden) render(); });
+activity.onChange(() => { if (!view.hidden) render(); });

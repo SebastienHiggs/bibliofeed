@@ -109,6 +109,52 @@ export async function signOut() {
   notify();
 }
 
+// ---------- your activity ----------
+// activity.js keeps the signed-in user's collections and comments in memory and
+// calls these to load them and to mirror each change. Shapes match activity.js:
+// a reference is { book, chapter, verse } and `at` is milliseconds.
+
+const PAGE = 1000; // the API returns at most this many rows per request, silently
+async function allRows(query) {
+  const rows = [];
+  for (let from = 0; ; from += PAGE) {
+    const page = unwrap(await query().range(from, from + PAGE - 1));
+    rows.push(...page);
+    if (page.length < PAGE) return rows;
+  }
+}
+
+export async function fetchMyActivity() {
+  const c = await client();
+  const collections = unwrap(await c.from('collections').select('id, kind, name').eq('user_id', me.id).order('id'));
+  const ids = collections.map((x) => x.id);
+  const [items, comments] = await Promise.all([
+    allRows(() => c.from('collection_items').select('collection_id, book, chapter, verse, added_at').in('collection_id', ids)
+      .order('collection_id').order('book').order('chapter').order('verse')),
+    allRows(() => c.from('comments').select('id, book, chapter, verse, body, created_at').eq('user_id', me.id).order('created_at').order('id')),
+  ]);
+  const byId = new Map(collections.map((x) => [x.id, { ...x, items: [] }]));
+  for (const i of items) byId.get(i.collection_id)?.items.push({ book: i.book, chapter: i.chapter, verse: i.verse, at: Date.parse(i.added_at) });
+  return {
+    collections: [...byId.values()],
+    comments: comments.map((x) => ({ id: x.id, book: x.book, chapter: x.chapter, verse: x.verse, comment: x.body, at: Date.parse(x.created_at) })),
+  };
+}
+
+const iso = (ms) => new Date(ms).toISOString();
+export const activity = {
+  addItem: async (collectionId, { book, chapter, verse, at }) =>
+    unwrap(await (await client()).from('collection_items').insert({ collection_id: collectionId, book, chapter, verse, added_at: iso(at) })),
+  removeItem: async (collectionId, { book, chapter, verse }) =>
+    unwrap(await (await client()).from('collection_items').delete().match({ collection_id: collectionId, book, chapter, verse })),
+  addComment: async ({ id, book, chapter, verse, comment, at }) =>
+    unwrap(await (await client()).from('comments').insert({ id, book, chapter, verse, body: comment, created_at: iso(at) })),
+  removeComment: async (id) => unwrap(await (await client()).from('comments').delete().eq('id', id)),
+  createCollection: async ({ id, name }) => unwrap(await (await client()).from('collections').insert({ id, name })),
+  renameCollection: async (id, name) => unwrap(await (await client()).from('collections').update({ name }).eq('id', id)),
+  deleteCollection: async (id) => unwrap(await (await client()).from('collections').delete().eq('id', id)),
+};
+
 // Deletes the account and everything it owns (the database cascades).
 export async function deleteAccount() {
   const c = await client();

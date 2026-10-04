@@ -4,6 +4,7 @@ import { BOOKS, ageLabel, authorOf, handle } from './books.js';
 import { getChapter } from './bible.js';
 import { getComments, studyLinks } from './commentary.js';
 import * as activity from './activity.js';
+import * as backend from './backend.js';
 import { ICONS, PALETTES, avatarHtml, closeAllSheets, esc, hash, openSheet, profileHref, timeAgo, toast } from './ui.js';
 
 // Group the chapter into slides of roughly equal reading length.
@@ -317,7 +318,7 @@ export async function openComments(post, { focus = false } = {}) {
     ${comments.length ? `<div class="comments-section-title">Commentary summaries</div>${commentHtml}` : '<div class="empty">No commentary summaries found for this verse.</div>'}
     <div class="comments-section-title">More free commentaries</div>
     ${linkHtml}
-    <p class="copyright">${esc(passage.copyright)} Commentary summaries are excerpts of public-domain works via the Free Use Bible API (bible.helloao.org). Your comments are saved in this browser only.</p>`;
+    <p class="copyright">${esc(passage.copyright)} Commentary summaries are excerpts of public-domain works via the Free Use Bible API (bible.helloao.org). ${backend.signedIn() ? 'Your comments are saved to your account.' : 'Your comments are saved in this browser only.'}</p>`;
 
   commentsBody.querySelectorAll('.expand').forEach((btn) => {
     btn.addEventListener('click', () => {
