@@ -488,5 +488,8 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   viewing 17:5, and its tag opens the post for that verse.
 - **Friends' comments shown (4 Oct 2026)**, the first piece of the friends step. Friendships load with the
   account; a chapter's friends' comments are fetched by naming the friends (one request per chapter,
-  remembered for a minute) and merged into the sheet and the preview line with display names. Friend
-  requests, the profile button and people search are still to come.
+  remembered for a minute) and merged into the sheet and the preview line with display names.
+- **Build step 5 done (4 Oct 2026)**: people's profiles at `#/@username` with the four-state friend
+  button and a friend's Library; a Friends tab on your activity page listing requests (Accept/Decline),
+  sent requests (Cancel) and friends; and the People tab in Search calling `search_profiles`. All
+  exercised against the local stack with the rows checked in the database.

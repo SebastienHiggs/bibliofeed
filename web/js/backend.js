@@ -189,6 +189,13 @@ export async function profileByUsername(username) {
   return row && { id: row.id, username: row.username, displayName: row.display_name };
 }
 
+// People whose username or display name matches `q` (the database's search_profiles(), see the plan).
+export async function searchProfiles(q) {
+  const c = await client();
+  const rows = unwrap(await c.rpc('search_profiles', { q }));
+  return rows.map((r) => ({ id: r.id, username: r.username, displayName: r.display_name }));
+}
+
 // A friend's Library items, newest first. The rules only return a friend's.
 export async function libraryOf(userId) {
   const c = await client();

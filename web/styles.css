@@ -260,7 +260,7 @@ a.story { color: inherit; text-decoration: none; }
 .hl-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .profile-tabs { display: flex; justify-content: center; border-top: 1px solid var(--border); }
-.profile-tabs span, .profile-tabs a { display: flex; padding: 10px 0; border-top: 1px solid var(--text); margin-top: -1px; width: 33%; justify-content: center; }
+.profile-tabs span, .profile-tabs a { display: flex; flex: 1; padding: 10px 0; border-top: 1px solid var(--text); margin-top: -1px; justify-content: center; }
 .profile-tabs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
@@ -348,6 +348,15 @@ a.highlight .avatar { --size: 60px; font-size: 20px; margin: 0 auto 4px; display
 .result-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .result-text small { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-go svg { width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* People rows (friends, requests, search results): the text links to the profile; buttons act on the request. */
+.result.person:hover { background: none; }
+.result.person a { color: inherit; text-decoration: none; }
+.result.person .result-text:hover b { text-decoration: underline; }
+.result.person .avatar { --size: 44px; font-size: 16px; }
+.primary-btn.small, .secondary-btn.small { padding: 6px 12px; font-size: 13px; flex: 0 0 auto; }
+.search-tabs { display: flex; margin: 0 16px 4px; border-radius: 10px; background: var(--skeleton); padding: 3px; }
+.search-tabs button { flex: 1; padding: 6px 0; border-radius: 8px; font-weight: 600; color: var(--muted); }
+.search-tabs button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 
 /* Author profiles have no tab bar; separate the grid from the header instead. */
 #profile-grid { border-top: 1px solid var(--border); padding-top: 2px; }

@@ -1,5 +1,5 @@
-// Your account page: saved, liked and commented posts, and (signed in) your
-// settings: sign out and delete account.
+// Your account page: saved, liked and commented posts; signed in, also your
+// friends and friend requests, and Settings (sign out, delete account).
 import * as activity from './activity.js';
 import * as backend from './backend.js';
 import { onDetailClose, openPosts } from './post.js';
@@ -13,7 +13,9 @@ const TABS = {
   saved: { icon: ICONS.save, label: 'Saved', list: activity.savedPosts, empty: 'Tap the bookmark on any post to save it here.' },
   liked: { icon: ICONS.heart, label: 'Liked', list: activity.likedPosts, empty: 'Posts you like (tap the heart or double-tap) show up here.' },
   comments: { icon: ICONS.comment, label: 'Comments', list: activity.commentedPosts, empty: 'Posts you comment on show up here.' },
+  friends: { icon: ICONS.people, label: 'Friends', signedIn: true },
 };
+const tabs = () => Object.entries(TABS).filter(([, t]) => !t.signedIn || backend.signedIn());
 let tab = 'saved';
 
 export function showAccount(which) {
@@ -49,8 +51,34 @@ function identityHtml() {
     ${backend.configured ? '<div class="profile-buttons"><a class="primary-btn" href="#/signin">Sign in</a></div>' : ''}`;
 }
 
+const personRow = (p, extra = '') => `
+  <div class="result person">
+    <a href="#/@${esc(p.username)}">${avatarHtml(p.displayName, { plain: true })}</a>
+    <a class="result-text" href="#/@${esc(p.username)}"><b>${esc(p.displayName)}</b><small>@${esc(p.username)}</small></a>
+    ${extra || `<a class="result-go" href="#/@${esc(p.username)}">${ICONS.arrow}</a>`}
+  </div>`;
+
+// Friends and requests: incoming first (they need an answer), then sent, then friends.
+function friendsHtml() {
+  const incoming = activity.friendRequests().filter((f) => f.incoming);
+  const sent = activity.friendRequests().filter((f) => !f.incoming);
+  const friends = activity.friends().sort((a, b) => a.displayName.localeCompare(b.displayName));
+  if (!incoming.length && !sent.length && !friends.length) {
+    return '<p class="empty">No friends yet. Find people in <a href="#/search">Search</a> and add them; friends see each other’s library and comments.</p>';
+  }
+  return `
+    ${incoming.length ? `<div class="section-label">Requests</div>${incoming.map((p) => personRow(p, `
+      <button class="primary-btn small" data-action="accept" data-id="${p.id}">Accept</button>
+      <button class="secondary-btn small" data-action="remove" data-id="${p.id}">Decline</button>`)).join('')}` : ''}
+    ${sent.length ? `<div class="section-label">Sent</div>${sent.map((p) => personRow(p, `
+      <button class="secondary-btn small" data-action="remove" data-id="${p.id}">Cancel</button>`)).join('')}` : ''}
+    ${friends.length ? `<div class="section-label">${friends.length} ${friends.length === 1 ? 'friend' : 'friends'}</div>${friends.map((p) => personRow(p)).join('')}` : ''}`;
+}
+
 function render() {
-  const posts = TABS[tab].list();
+  // A signed-in-only tab falls back to Saved until the account has signed in (e.g. during startup).
+  const active = TABS[tab].signedIn && !backend.signedIn() ? 'saved' : tab;
+  const posts = TABS[active].list ? TABS[active].list() : [];
   const name = backend.me?.profile?.displayName || 'You';
   view.innerHTML = `
     <header class="profile-header">
@@ -60,20 +88,34 @@ function render() {
           <div><b>${activity.savedPosts().length}</b><span>saved</span></div>
           <div><b>${activity.likedPosts().length}</b><span>liked</span></div>
           <div><b>${activity.commentCount()}</b><span>${activity.commentCount() === 1 ? 'comment' : 'comments'}</span></div>
+          ${backend.signedIn() ? `<div><b>${activity.friends().length}</b><span>${activity.friends().length === 1 ? 'friend' : 'friends'}</span></div>` : ''}
         </div>
       </div>
       ${identityHtml()}
     </header>
     <nav class="profile-tabs account-tabs">
-      ${Object.entries(TABS).map(([id, t]) => `<a class="${id === tab ? 'on' : ''}" href="#/me/${id}" aria-label="${t.label}">${t.icon}</a>`).join('')}
+      ${tabs().map(([id, x]) => `<a class="${id === active ? 'on' : ''}" href="#/me/${id}" aria-label="${x.label}">${x.icon}</a>`).join('')}
     </nav>
     ${!activity.loaded() ? '<div class="sentinel"><div class="spinner"></div></div>'
-      : posts.length ? '<div class="grid" id="account-grid"></div>' : `<p class="empty">${TABS[tab].empty}</p>`}`;
+      : active === 'friends' ? friendsHtml()
+      : posts.length ? '<div class="grid" id="account-grid"></div>' : `<p class="empty">${TABS[active].empty}</p>`}`;
 
   const grid = view.querySelector('#account-grid');
-  if (grid) posts.forEach((p, i) => grid.append(tileEl(p, () => openPosts(posts, i, { title: TABS[tab].label, subtitle: name }))));
+  if (grid) posts.forEach((p, i) => grid.append(tileEl(p, () => openPosts(posts, i, { title: TABS[active].label, subtitle: name }))));
   view.querySelector('.open-settings')?.addEventListener('click', openSettings);
 }
+
+view.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const person = activity.friendshipWith(btn.dataset.id);
+  if (btn.dataset.action === 'accept') {
+    activity.acceptFriend(btn.dataset.id);
+    if (person) toast(`You and ${person.displayName} are now friends`);
+  } else {
+    activity.removeFriend(btn.dataset.id);
+  }
+});
 
 // ---------- settings sheet ----------
 

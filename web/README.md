@@ -23,6 +23,9 @@ This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofe
   name, and sign out or delete your account from Settings. Signed in, your likes, saves and comments belong
   to your account and follow you across devices. Signed out, everything still works as before, in this
   browser only.
+- **Friends**: find people in Search (the People tab, by name or @username), open their profile at
+  `#/@username` and tap Add friend. Once they accept, you see each other's comments on verses and each
+  other's Library. Requests, sent requests and your friends are listed on your activity page.
 - **Comments**: add your own comments to any post. The sheet has two panes you swipe between: Commentary
   (the summaries, first) and Comments, which shows comments on this verse and then comments elsewhere in
   the same chapter, each tagged with its verse. That way a comment on Ezra 5:10 is met from any verse of
@@ -95,7 +98,8 @@ build command and root directory. Every push to another branch then gets its own
 | `index.html`, `styles.css` | Layout and styling |
 | `js/app.js` | Feed, stories row and routing between views |
 | `js/post.js` | A post: carousel, likes, saves, comments sheet, single-post view |
-| `js/profile.js`, `js/account.js`, `js/search.js` | The profile, your-activity (with Settings) and search views |
+| `js/profile.js`, `js/account.js`, `js/search.js` | The author profile, your-activity (friends, Settings) and search views |
+| `js/user.js` | Another person's profile: the friend button and, for friends, their Library |
 | `js/signin.js` | Sign in: email, the 6-digit code, then a username and display name the first time |
 | `js/activity.js` | Your likes, saves, collections and comments: verse references only, in localStorage or your account |
 | `js/ui.js` | Shared helpers: icons, avatars, tiles, toasts, sheets |
