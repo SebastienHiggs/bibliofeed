@@ -2,17 +2,28 @@
 //   node server.js          serves the source (chapters load live from the API)
 //   node server.js dist     serves the build (bundled Bible)
 import http from 'node:http';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = resolve(fileURLToPath(new URL('.', import.meta.url)), process.argv[2] || '.');
+const web = fileURLToPath(new URL('.', import.meta.url));
+const root = resolve(web, process.argv[2] || '.');
 const port = Number(process.env.PORT) || 8080;
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
+// When serving the source, two paths come from elsewhere (the build copies both into dist/):
+// the bundled supabase-js from node_modules, and js/config.local.js (uncommitted, pointing at a
+// local Supabase stack) in place of js/config.js when it exists.
+const SOURCE_ONLY = root === resolve(web);
+const VENDOR = { '/vendor/supabase.js': 'node_modules/@supabase/supabase-js/dist/umd/supabase.js' };
+
 http.createServer(async (req, res) => {
   const { pathname } = new URL(req.url, 'http://localhost');
-  const path = normalize(join(root, pathname === '/' ? 'index.html' : pathname));
+  let rel = pathname === '/' ? 'index.html' : pathname;
+  if (SOURCE_ONLY && VENDOR[rel]) rel = VENDOR[rel];
+  if (SOURCE_ONLY && rel === '/js/config.js' && existsSync(join(root, 'js/config.local.js'))) rel = 'js/config.local.js';
+  const path = normalize(join(root, rel));
   if (!path.startsWith(root)) return res.writeHead(403).end();
   try {
     const body = await readFile(path);

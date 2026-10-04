@@ -39,9 +39,26 @@ chapter that isn't there live from the same API. Commentaries are always fetched
 
 ```sh
 cd web
+npm install            # once: fetches the pinned supabase-js that the build bundles
 npm start              # serves the source
 npm run build && npm run preview   # serves the built dist/
 ```
+
+## Accounts and the backend
+
+Accounts, friends and syncing use Supabase, called straight from the browser; the database's row-level
+security decides who may see what. The plan and the schema are in
+[`../docs/supabase-backend/`](../docs/supabase-backend/README.md) and [`../supabase/`](../supabase/).
+
+- **`js/config.js`** holds the project URL and publishable key. Both are public by design. With both
+  empty, the app has no accounts and works exactly as it did before.
+- **`js/backend.js`** is the only module that talks to Supabase. Signed out, the app never loads the
+  Supabase library or makes a request.
+- **supabase-js is bundled** from `node_modules` into `dist/vendor/` by the build, so no third-party CDN
+  sees visitors' requests.
+- **Developing against the local stack**: `npx supabase start` at the repo root, then put the URL and key
+  it prints in `js/config.local.js` (ignored by git). `npm start` serves it in place of `config.js`. Sign-in
+  codes arrive in the mail catcher at `http://127.0.0.1:54344`.
 
 ## Deploy on Cloudflare
 
@@ -54,8 +71,9 @@ In the Cloudflare dashboard: **Workers & Pages → Create application → Connec
 | Deploy command | `npx wrangler deploy` |
 | Advanced settings → Path | `web` |
 
-`wrangler.jsonc` tells Cloudflare to serve only `dist/` as static files. There's no server code, and no
-environment variables or API keys are needed. Every push to `main` redeploys the live site.
+`wrangler.jsonc` tells Cloudflare to serve only `dist/` as static files. There's no server code and no
+environment variables: the Supabase URL and key are committed in `js/config.js` (see above). Cloudflare runs
+`npm install` before the build command. Every push to `main` redeploys the live site.
 
 **Preview builds:** in **Settings → Build → Previews Base**, turn on *Builds for Preview branches* with the same
 build command and root directory. Every push to another branch then gets its own preview link.
@@ -74,7 +92,8 @@ build command and root directory. Every push to another branch then gets its own
 | `js/commentary.js` | Commentary summaries and study links |
 | `js/books.js` | The 66 books: codes, chapter counts, authors, bios |
 | `scripts/fetch-bible.mjs` | Downloads the BSB into the shared `../data/bsb/` |
-| `scripts/build.mjs` | Builds `dist/` from the source and `../data/bsb/` |
+| `js/backend.js`, `js/config.js` | Talking to Supabase (sign-in, your profile), and where it lives |
+| `scripts/build.mjs` | Builds `dist/` from the source, `node_modules` (supabase-js) and `../data/bsb/` |
 | `server.js` | Zero-dependency static server for local development |
 | `wrangler.jsonc` | Cloudflare config: serve `dist/` as static assets |
 
