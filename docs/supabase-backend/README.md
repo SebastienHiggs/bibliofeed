@@ -280,7 +280,7 @@ tiles.
 - **A new "Add to Library" button** adds to Library (signed in only). In the schema the kind is `library`.
 - **The comments sheet** has two panes, swiped or tapped between: **Commentary** first (the exegesis,
   by the owner's decision), then **Comments**, holding "On 5:10" and "Elsewhere in Ezra 5" (tagged with
-  the verse; tapping the tag turns the carousel to that verse). Every list is capped at three with a
+  the verse; tapping the tag opens that verse's own post). Every list is capped at three with a
   "Show more", so nothing is unbounded. The tab reads "Comments (N)" and the line under each post reads
   "View commentary · N comments", counting the whole chapter, so people's comments are noticed without
   scrolling past the commentaries. Friends' comments join these lists in the friends step; the queries
@@ -485,7 +485,7 @@ From the review of 3–4 Oct 2026, with a target of a million users:
 - **Comments shown chapter-wide (4 Oct 2026)**, after the owner found a comment on Ezra 5:10 impossible to
   meet again. The sheet became two panes (Commentary, Comments) with capped lists; see the decisions
   table. Verified: a comment on Deuteronomy 17:10 appears under "Elsewhere in Deuteronomy 17" when
-  viewing 17:5, and its tag turns the carousel to the slide with verse 10.
+  viewing 17:5, and its tag opens the post for that verse.
 - **Friends' comments shown (4 Oct 2026)**, the first piece of the friends step. Friendships load with the
   account; a chapter's friends' comments are fetched by naming the friends (one request per chapter,
   remembered for a minute) and merged into the sheet and the preview line with display names. Friend

@@ -182,11 +182,6 @@ export function renderPost(el, { book, chapter, verse, passage }) {
   // so long lists of posts don't fire hundreds of requests at once.
   const post = { book, chapter, verse, passage, ref, user, author, key };
   post.loadCommentary = () => (post.commentary ??= getComments(book, chapter, verse.number));
-  // Scroll the carousel to the slide holding verse `n` (used by "v. 12" tags in the comments sheet).
-  post.showVerse = (n) => {
-    const i = chunks.findIndex((vs) => vs.some((v) => v.number === n));
-    if (i >= 0) track.scrollTo({ left: (i + 1) * track.clientWidth });
-  };
   const preview = el.querySelector('.comments-preview');
   preview.querySelector('.view-comments').addEventListener('click', () => openComments(post));
   // "View commentary · 3 comments", then the latest comment in the chapter (or the first commentary line).
@@ -342,9 +337,9 @@ panes.addEventListener('click', (e) => {
     drawComments();
     currentPost.onComment?.();
   } else if (btn.classList.contains('verse-tag')) {
-    // Read that verse in context: close the sheet and turn the carousel to its slide.
-    currentPost.showVerse(Number(btn.dataset.verse));
+    // Go to that verse's own post, where the comment sits under "On 5:3".
     closeAllSheets();
+    openPost(currentPost.book, currentPost.chapter, Number(btn.dataset.verse));
   } else if (btn.classList.contains('expand')) {
     const span = commentaryPane.querySelector(`.text[data-i="${btn.dataset.i}"]`);
     span.textContent = currentPost.commentary[btn.dataset.i].full;
