@@ -427,6 +427,17 @@ a.primary-btn:hover { text-decoration: none; }
 .link.danger { color: var(--like); }
 .chips-form { margin: 10px 16px 6px; border-top: 0; padding: 0; }
 
+/* ---------- Import banner and sheet ---------- */
+.banner { margin: 0 16px 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+.banner p { margin: 0 0 10px; }
+.banner-actions { display: flex; gap: 8px; }
+#import-body .banner-actions { margin-top: 14px; }
+#import-body .banner-actions button { flex: 1; }
+#import-body p { margin: 4px 0 12px; }
+.check-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-weight: 600; }
+.check-row input { width: 18px; height: 18px; accent-color: var(--accent); }
+.check-row small { flex-basis: 100%; color: var(--muted); font-weight: 400; margin-left: 26px; }
+
 /* ---------- Settings sheet ---------- */
 .settings-who { color: var(--muted); margin: 4px 0 8px; }
 .menu-item { display: block; width: 100%; text-align: left; padding: 14px 0; border-top: 1px solid var(--border); font-weight: 600; }

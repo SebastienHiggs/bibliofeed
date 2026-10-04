@@ -3,6 +3,7 @@
 import * as activity from './activity.js';
 import * as backend from './backend.js';
 import { onDetailClose, openPosts } from './post.js';
+import { bannerHtml, openImport } from './import.js';
 import { ICONS, avatarHtml, closeSheet, esc, openSheet, tileEl, toast } from './ui.js';
 
 const view = document.getElementById('account-view');
@@ -123,6 +124,7 @@ function render() {
       </div>
       ${identityHtml()}
     </header>
+    ${bannerHtml()}
     <nav class="profile-tabs account-tabs">
       ${tabs().map(([id, x]) => `<a class="${id === active ? 'on' : ''}" href="#/me/${id}" aria-label="${x.label}">${x.icon}</a>`).join('')}
     </nav>
@@ -197,6 +199,7 @@ function openSettings() {
   const who = backend.me?.profile;
   settingsBody.innerHTML = `
     <p class="settings-who">Signed in as <b>${esc(who.displayName)}</b> @${esc(who.username)}</p>
+    ${activity.importable() ? '<button class="menu-item import-local">Add this browser’s activity to my account…</button>' : ''}
     <button class="menu-item sign-out">Sign out</button>
     <button class="menu-item danger delete-account">Delete account…</button>
     <p class="hint-row">Deleting your account removes your profile and everything in it. It can’t be undone.</p>`;
@@ -207,7 +210,10 @@ settingsBody.addEventListener('click', async (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
   try {
-    if (btn.classList.contains('sign-out')) {
+    if (btn.classList.contains('import-local')) {
+      closeSheet(settingsBackdrop);
+      openImport();
+    } else if (btn.classList.contains('sign-out')) {
       btn.disabled = true;
       await backend.signOut();
       closeSheet(settingsBackdrop);

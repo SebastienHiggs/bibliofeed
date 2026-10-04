@@ -26,7 +26,8 @@ This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofe
 - **Accounts**: sign in with your email and a 6-digit code (no password), choose a username and display
   name, and sign out or delete your account from Settings. Signed in, your likes, saves and comments belong
   to your account and follow you across devices. Signed out, everything still works as before, in this
-  browser only.
+  browser only, and once you sign in the app offers to add that browser's activity to your account
+  (comments optional, since friends can see them).
 - **Friends**: find people in Search (the People tab, by name or @username), open their profile at
   `#/@username` and tap Add friend. Once they accept, you see each other's comments on verses and each
   other's Library. Requests, sent requests and your friends are listed on your activity page.
@@ -104,6 +105,7 @@ build command and root directory. Every push to another branch then gets its own
 | `js/post.js` | A post: carousel, likes, saves, comments sheet, single-post view |
 | `js/profile.js`, `js/account.js`, `js/search.js` | The author profile, your-activity (friends, Settings) and search views |
 | `js/user.js` | Another person's profile: the friend button and, for friends, their Library |
+| `js/import.js` | Offering to add this browser's signed-out activity to the account |
 | `js/signin.js` | Sign in: email, the 6-digit code, then a username and display name the first time |
 | `js/activity.js` | Your likes, saves, collections and comments: verse references only, in localStorage or your account |
 | `js/ui.js` | Shared helpers: icons, avatars, tiles, toasts, sheets |

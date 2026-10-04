@@ -179,6 +179,54 @@ export const commentsFor = (key) =>
 export const commentsInChapter = (bookId, chapter) =>
   state.comments.filter((c) => c.book === bookId && c.chapter === chapter).sort((a, b) => a.at - b.at);
 
+// ---------- importing this browser's data into the account ----------
+
+const saveLocal = (local) => { try { localStorage.setItem(KEY, JSON.stringify(local)); } catch { /* storage unavailable */ } };
+
+// What this browser saved while signed out, if it hasn't been added to an account yet.
+// Null when there's nothing to add (or it's been added, or the offer was declined).
+export function importable() {
+  if (!remote) return null;
+  const local = loadLocal();
+  if (local.importedAt || local.importDismissed) return null;
+  const count = (kind) => local.collections.filter((c) => c.kind === kind).reduce((n, c) => n + c.items.length, 0);
+  const summary = { likes: count('likes'), saves: count('saved'), inCollections: count('custom'), comments: local.comments.length };
+  return summary.likes + summary.saves + summary.inCollections + summary.comments ? summary : null;
+}
+export function dismissImport() {
+  saveLocal({ ...loadLocal(), importDismissed: true });
+  notify();
+}
+
+// Adds this browser's likes, saves, collections and (optionally) comments to the
+// account, then reloads the account so memory matches. Items already there are
+// skipped by the database, so a second run adds nothing twice.
+export async function importLocal({ includeComments = true } = {}) {
+  if (!remote) return;
+  const local = loadLocal();
+  const items = [];
+  for (const lc of local.collections) {
+    if (!lc.items.length) continue;
+    let target = lc.kind === 'custom'
+      ? state.collections.find((c) => c.kind === 'custom' && c.name.toLowerCase() === lc.name.toLowerCase())
+      : byKind(lc.kind);
+    if (!target) {
+      target = { id: newId(), kind: 'custom', name: lc.name, items: [] };
+      await backend.activity.createCollection(target);
+    }
+    for (const i of lc.items) items.push({ collectionId: target.id, ...i });
+  }
+  for (let i = 0; i < items.length; i += 500) await backend.activity.addItems(items.slice(i, i + 500));
+  if (includeComments) {
+    const comments = local.comments.map((c) => ({ ...c, id: newId() })); // fresh ids: the same browser may feed two accounts
+    for (let i = 0; i < comments.length; i += 500) await backend.activity.addComments(comments.slice(i, i + 500));
+  }
+  saveLocal({ ...local, importedAt: Date.now() });
+  state = { ...empty(), ...await backend.fetchMyActivity() };
+  friendComments.clear();
+  commit();
+}
+
 // ---------- friends ----------
 
 export const friends = () => state.friends.filter((f) => f.accepted);

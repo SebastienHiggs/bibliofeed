@@ -496,3 +496,9 @@ From the review of 3–4 Oct 2026, with a target of a million users:
 - **Build step 6 done (4 Oct 2026)**: the "Add to Library" button on posts; hold or right-click the
   bookmark for the collections sheet (Saved, your collections, New collection); and collection chips on
   the Saved tab (Saved, each of yours, Library) with rename and delete. Verified on the local stack.
+- **Build step 4 done (4 Oct 2026), the last**: a banner on your activity page and an entry in Settings
+  offer to add this browser's signed-out activity to the account, with the comments optional. Custom
+  collections are matched by name or created, items are upserted (duplicates skipped) and comments get
+  fresh ids; original timestamps are kept; the browser remembers it has imported (or declined). Verified
+  on the local stack. **All six build steps are done**; what remains is the hosted project, the
+  `config.js` values, and the open-source housekeeping listed above.

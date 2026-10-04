@@ -176,6 +176,12 @@ export const activity = {
   addComment: async ({ id, book, chapter, verse, comment, at }) =>
     unwrap(await (await client()).from('comments').insert({ id, book, chapter, verse, body: comment, created_at: iso(at) })),
   removeComment: async (id) => unwrap(await (await client()).from('comments').delete().eq('id', id)),
+  // Bulk, for importing a browser's data. Items already in a collection are skipped, so running twice is harmless.
+  addItems: async (rows) => unwrap(await (await client()).from('collection_items')
+    .upsert(rows.map(({ collectionId, book, chapter, verse, at }) => ({ collection_id: collectionId, book, chapter, verse, added_at: iso(at) })),
+      { onConflict: 'collection_id,book,chapter,verse', ignoreDuplicates: true })),
+  addComments: async (rows) => unwrap(await (await client()).from('comments')
+    .insert(rows.map(({ id, book, chapter, verse, comment, at }) => ({ id, book, chapter, verse, body: comment, created_at: iso(at) })))),
   createCollection: async ({ id, name }) => unwrap(await (await client()).from('collections').insert({ id, name })),
   renameCollection: async (id, name) => unwrap(await (await client()).from('collections').update({ name }).eq('id', id)),
   deleteCollection: async (id) => unwrap(await (await client()).from('collections').delete().eq('id', id)),

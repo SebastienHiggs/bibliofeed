@@ -92,6 +92,18 @@
     </div>
   </div>
 
+  <!-- Import: add this browser's signed-out activity to the account -->
+  <div class="sheet-backdrop" id="import-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="import-title">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 id="import-title">Add to your account</h2>
+        <button class="icon-btn close-sheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body" id="import-body"></div>
+    </div>
+  </div>
+
   <!-- Account settings: sign out, delete account -->
   <div class="sheet-backdrop" id="settings-backdrop" hidden>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
