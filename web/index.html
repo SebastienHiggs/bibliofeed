@@ -19,8 +19,10 @@
       <h1 class="wordmark"><a href="#/">Bibliofeed</a></h1>
       <a class="topbar-back" id="topbar-back" href="#/" hidden><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span></span></a>
       <div class="topbar-actions">
-        <a class="icon-btn" href="#/me" data-nav="me" aria-label="Your saved, liked and commented posts" title="Your activity">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <a class="icon-btn" href="#/me" data-nav="me" aria-label="Your activity" title="Your activity">
+          <!-- A person elsewhere; on your own page, a gear: the button opens your account menu there. -->
+          <svg class="icon-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <svg class="icon-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         </a>
       </div>
     </div>
@@ -30,6 +32,7 @@
 
   <main class="feed-wrap">
     <div id="feed-view">
+      <div class="pull-refresh" id="pull-refresh" aria-hidden="true"><div class="spinner"></div></div>
       <section class="stories" id="stories" aria-label="Authors"></section>
       <section id="feed" aria-live="polite"></section>
       <div id="sentinel" class="sentinel"><div class="spinner"></div></div>
@@ -37,6 +40,8 @@
     <div id="profile-view" hidden></div>
     <div id="account-view" hidden></div>
     <div id="search-view" hidden></div>
+    <div id="signin-view" hidden></div>
+    <div id="user-view" hidden></div>
   </main>
 
   <!-- Single post opened from a grid or search -->
@@ -53,19 +58,64 @@
     <a class="icon-btn" href="#/search" data-nav="search" aria-label="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></a>
   </nav>
 
-  <!-- Comments sheet -->
+  <!-- Comments sheet: two panes, swipe or tap the tabs. Commentary first; then
+       comments from you and your friends on this verse and elsewhere in the chapter. -->
   <div class="sheet-backdrop" id="comments-backdrop" hidden>
-    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="comments-title">
+    <div class="sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="comments-title">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <h2 id="comments-title">Comments</h2>
         <button class="icon-btn close-sheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
-      <div class="sheet-body" id="comments-body"></div>
+      <p class="sheet-caption" id="comments-caption"></p>
+      <nav class="sheet-tabs" id="comments-tabs" aria-label="Comment sections">
+        <button class="on" data-pane="0">Commentary</button>
+        <button data-pane="1">Comments</button>
+      </nav>
+      <div class="panes" id="comments-panes">
+        <div class="pane" id="commentary-pane"></div>
+        <div class="pane" id="comments-pane"></div>
+      </div>
       <form class="comment-form" id="comment-form">
-        <input type="text" placeholder="Add a comment…" aria-label="Add a comment" maxlength="1000" enterkeyhint="send">
+        <input type="text" placeholder="Add a comment…" aria-label="Add a comment" maxlength="2000" enterkeyhint="send">
         <button type="submit" disabled>Post</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Collections: hold the bookmark on a post to choose where to save it -->
+  <div class="sheet-backdrop" id="collections-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="collections-title">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 id="collections-title">Save to…</h2>
+        <button class="icon-btn close-sheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body" id="collections-body"></div>
+    </div>
+  </div>
+
+  <!-- Import: add this browser's signed-out activity to the account -->
+  <div class="sheet-backdrop" id="import-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="import-title">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 id="import-title">Add to your account</h2>
+        <button class="icon-btn close-sheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body" id="import-body"></div>
+    </div>
+  </div>
+
+  <!-- Account settings: sign out, delete account -->
+  <div class="sheet-backdrop" id="settings-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2 id="settings-title">Account</h2>
+        <button class="icon-btn close-sheet" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body" id="settings-body"></div>
     </div>
   </div>
 

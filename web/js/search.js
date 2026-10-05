@@ -1,5 +1,7 @@
-// Search: jump to a reference ("John 3:16", "ps 23"), a book, or an author.
+// Search: jump to a reference ("John 3:16", "ps 23"), a book, or an author;
+// signed in, also find people by name or username.
 import { ALL_AUTHORS, AUTHORS, BOOKS, handle, worksOf } from './books.js';
+import * as backend from './backend.js';
 import { openPost } from './post.js';
 import { ICONS, avatarHtml, esc, profileHref } from './ui.js';
 
@@ -40,7 +42,7 @@ function row({ href, avatar, title, sub, data = '' }) {
   </${tag}>`;
 }
 
-function results(q) {
+function bibleResults(q) {
   const out = [];
   const ref = parseReference(q);
   if (ref) {
@@ -87,21 +89,64 @@ function results(q) {
   return out.length ? out.join('') : `<p class="empty">No matches for “${esc(q)}”. Try a book, an author or a reference like John 3:16.</p>`;
 }
 
+// People: asks the account after a short pause in typing. Two characters is the minimum the search needs.
+let peopleRequest = 0;
+async function peopleResults(q, list) {
+  const term = q.trim();
+  if (term.length < 2) {
+    list.innerHTML = '<p class="empty">Type a name or @username (at least two letters).</p>';
+    return;
+  }
+  const id = ++peopleRequest;
+  list.innerHTML = '<div class="sentinel"><div class="spinner"></div></div>';
+  try {
+    const people = await backend.searchProfiles(term.replace(/^@/, ''));
+    if (id !== peopleRequest) return;
+    list.innerHTML = people.length
+      ? people.map((p) => row({ href: `#/@${esc(p.username)}`, avatar: avatarHtml(p.displayName, { plain: true }), title: esc(p.displayName), sub: `@${esc(p.username)}` })).join('')
+      : `<p class="empty">Nobody matches “${esc(term)}”.</p>`;
+  } catch (err) {
+    console.error(err);
+    if (id === peopleRequest) list.innerHTML = '<p class="empty">Couldn’t search right now. Check your connection.</p>';
+  }
+}
+
 let query = '';
+let mode = 'bible'; // or 'people' (signed in only)
+const PLACEHOLDER = { bible: 'Search books, authors or John 3:16', people: 'Search people by name or @username' };
 
 export function showSearch() {
   view.hidden = false;
+  if (!backend.signedIn()) mode = 'bible';
   view.innerHTML = `
     <form class="search-bar" role="search">
       ${ICONS.search}
-      <input type="search" placeholder="Search books, authors or John 3:16" aria-label="Search" autocomplete="off" enterkeyhint="go">
+      <input type="search" placeholder="${PLACEHOLDER[mode]}" aria-label="Search" autocomplete="off" enterkeyhint="go">
     </form>
+    ${backend.signedIn() ? `<nav class="search-tabs" aria-label="What to search">
+      <button type="button" class="${mode === 'bible' ? 'on' : ''}" data-mode="bible">Bible</button>
+      <button type="button" class="${mode === 'people' ? 'on' : ''}" data-mode="people">People</button>
+    </nav>` : ''}
     <div class="results"></div>`;
   const input = view.querySelector('input');
   const list = view.querySelector('.results');
-  const draw = () => { list.innerHTML = results(input.value); };
+  let timer;
+  const draw = () => {
+    clearTimeout(timer);
+    if (mode === 'bible') list.innerHTML = bibleResults(input.value);
+    else timer = setTimeout(() => peopleResults(input.value, list), 250);
+  };
   input.value = query;
   input.addEventListener('input', () => { query = input.value; draw(); });
+  view.querySelector('.search-tabs')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn || btn.dataset.mode === mode) return;
+    mode = btn.dataset.mode;
+    view.querySelectorAll('.search-tabs button').forEach((b) => b.classList.toggle('on', b === btn));
+    input.placeholder = PLACEHOLDER[mode];
+    draw();
+    input.focus();
+  });
   view.querySelector('form').addEventListener('submit', (e) => {
     e.preventDefault();
     input.blur();

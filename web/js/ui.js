@@ -1,5 +1,6 @@
 // Small shared helpers: escaping, avatars, icons, toasts, sheets, grid tiles.
 import { handle } from './books.js';
+import { getChapter } from './bible.js';
 
 export const PALETTES = [
   'linear-gradient(135deg, #1e3c72, #2a5298)',
@@ -31,6 +32,9 @@ export const ICONS = {
   book: '<svg viewBox="0 0 24 24"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v16H5.5A1.5 1.5 0 0 0 4 20.5zM4 20.5A1.5 1.5 0 0 0 5.5 22H20"/></svg>',
   arrow: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  library: '<svg viewBox="0 0 24 24"><path d="M3.5 4.5h4v15h-4zM9.5 4.5h4v15h-4zM14.6 6l3.9-1 3.9 14.5-3.9 1z"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  people: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.8"/><path d="M15.5 14.2A5 5 0 0 1 21.5 19"/></svg>',
 };
 
 export const esc = (s) =>
@@ -69,6 +73,15 @@ export function toast(msg) {
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2200);
 }
 
+// Horizontal rows (stories, book and collection chips) scroll with a mouse
+// wheel on desktop, where there's no swipe; the vertical wheel moves them sideways.
+document.addEventListener('wheel', (e) => {
+  const row = e.target.closest('.stories, .highlights');
+  if (!row || row.scrollWidth <= row.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+  row.scrollLeft += e.deltaY;
+  e.preventDefault();
+}, { passive: false });
+
 export function openSheet(backdrop) {
   backdrop.hidden = false;
   document.body.style.overflow = 'hidden';
@@ -79,7 +92,9 @@ export function closeSheet(backdrop) {
 }
 export const closeAllSheets = () => document.querySelectorAll('.sheet-backdrop:not([hidden])').forEach(closeSheet);
 
-// A square grid tile for a verse. `onOpen` is called when it's tapped.
+// A square grid tile for a verse. `onOpen` is called when it's tapped. Without
+// `text` (saved activity keeps only references) the verse is looked up; each
+// book loads once and is cached, so a grid of hundreds costs a few requests.
 export function tileEl({ book, chapter, verse, text }, onOpen) {
   const ref = `${book.name} ${chapter}:${verse}`;
   const el = document.createElement('button');
@@ -87,9 +102,14 @@ export function tileEl({ book, chapter, verse, text }, onOpen) {
   el.style.setProperty('--slide-bg', PALETTES[hash(ref) % PALETTES.length]);
   el.setAttribute('aria-label', ref);
   el.innerHTML = `
-    <span class="tile-text">${esc(text)}</span>
+    <span class="tile-text">${esc(text || '')}</span>
     <span class="tile-ref">${esc(ref)}</span>
     <span class="tile-stack">${ICONS.stack}</span>`;
+  if (!text) {
+    getChapter(book, chapter)
+      .then((p) => { el.querySelector('.tile-text').textContent = p.verses.find((v) => v.number === verse)?.text || ''; })
+      .catch(() => { /* the tile still shows its reference */ });
+  }
   el.addEventListener('click', onOpen);
   return el;
 }

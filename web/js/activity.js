@@ -1,89 +1,312 @@
-// Your own activity: likes, saves, comments and follows.
-// Kept in this browser's localStorage; there are no accounts yet.
+// Your own activity: likes, saves, custom collections and comments.
+//
+// Two stores behind one synchronous interface. Signed out, it lives in this
+// browser's localStorage. Signed in, it's your account: loaded into memory
+// when the app starts, read from memory, and every change is applied here
+// first, then sent to the backend (and undone here if that fails).
+//
+// Everything is a verse reference, { book: 'JHN', chapter: 3, verse: 16 },
+// never the text: the app has the whole Bible and looks text up when needed.
 import { BOOKS } from './books.js';
+import * as backend from './backend.js';
+import { toast } from './ui.js';
 
-// Keeps the app's original name so existing saves, likes and comments survive the rename.
+// Keeps the app's original name so existing saves, likes and comments are found.
 const KEY = 'verse-feed:activity';
 const bookById = new Map(BOOKS.map((b) => [b.id, b]));
+export const newId = () => crypto.randomUUID();
 
-function load() {
+// Likes and Saved are collections like any other; everyone has them. (Accounts
+// also have a Library, which exists to be seen by friends.)
+const BUILTIN = [['likes', 'Likes'], ['saved', 'Saved']];
+const empty = () => ({
+  version: 2,
+  collections: BUILTIN.map(([kind, name]) => ({ id: kind, kind, name, items: [] })),
+  comments: [],
+  friends: [], // signed in only: everyone with a friendship row, accepted or pending
+  importedAt: null, // set once this browser's data has been added to an account
+});
+
+// Version 1 kept `liked` and `saved` maps with a copy of each verse's text, and
+// a list of followed authors. Only the references and comments carry over.
+function upgrade(v1) {
+  const s = empty();
+  const refs = (map) => Object.values(map || {}).map(({ book, chapter, verse, at }) => ({ book, chapter, verse, at }));
+  s.collections[0].items = refs(v1.liked);
+  s.collections[1].items = refs(v1.saved);
+  s.comments = (v1.comments || []).map(({ id, book, chapter, verse, comment, at }) => ({ id, book, chapter, verse, comment, at }));
+  return s;
+}
+
+function loadLocal() {
   try {
-    const data = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { liked: {}, saved: {}, comments: [], following: [], ...data };
+    const data = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (!data) return empty();
+    return data.version === 2 ? { ...empty(), ...data } : upgrade(data);
   } catch {
-    return { liked: {}, saved: {}, comments: [], following: [] };
+    return empty();
   }
 }
-let state = load();
+
+let state = loadLocal();
+let remote = null; // the signed-in user's id while their account is the store
 const listeners = new Set();
+export const onChange = (fn) => listeners.add(fn);
+const notify = () => listeners.forEach((fn) => fn());
+
+// "JHN.3.16": how the rest of the app names a post.
+export const postKey = (book, chapter, verse) => `${book.id}.${chapter}.${verse}`;
+const refKey = ({ book, chapter, verse }) => `${book}.${chapter}.${verse}`;
+
+// For fast isLiked/isSaved checks while the feed renders.
+let keys = new Map(); // collection id -> Set of keys
+const reindex = () => { keys = new Map(state.collections.map((c) => [c.id, new Set(c.items.map(refKey))])); };
+reindex();
 
 function commit() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
-  listeners.forEach((fn) => fn());
+  reindex();
+  if (!remote) {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
+  }
+  notify();
 }
-export const onChange = (fn) => listeners.add(fn);
 
-export const postKey = (book, chapter, verse) => `${book.id}.${chapter}.${verse}`;
+// Signed in: send the change to the account; if that fails, put things back.
+function persist(send, undo) {
+  if (!remote) return;
+  send().catch((err) => {
+    console.error(err);
+    undo();
+    commit();
+    toast('That didn’t save. Check your connection and try again.');
+  });
+}
 
-// Enough of a post to show it in a grid and reopen it later.
-const snapshot = (book, chapter, verse) => ({ book: book.id, chapter, verse: verse.number, text: verse.text });
-const expand = (snap) => ({ ...snap, book: bookById.get(snap.book) });
+// ---------- which store ----------
 
-export const isLiked = (key) => Boolean(state.liked[key]);
-export const isSaved = (key) => Boolean(state.saved[key]);
-
-function toggle(kind, book, chapter, verse, on) {
-  const key = postKey(book, chapter, verse.number);
-  if (on) state[kind][key] = { ...snapshot(book, chapter, verse), at: Date.now() };
-  else delete state[kind][key];
+async function syncStore() {
+  const user = backend.signedIn() ? backend.me.id : null;
+  if (user === remote) return;
+  friendComments.clear();
+  if (!user) {
+    remote = null;
+    state = loadLocal();
+    commit();
+    return;
+  }
+  remote = user;
+  state = { ...empty(), collections: [] }; // nothing of this browser's shows while the account loads
   commit();
+  try {
+    const data = await backend.fetchMyActivity();
+    if (remote !== user) return; // signed out meanwhile
+    state = { ...empty(), ...data };
+    commit();
+  } catch (err) {
+    console.error(err);
+    toast('Couldn’t load your account. Pull to refresh or try again later.');
+  }
 }
-export const setLiked = (book, chapter, verse, on) => toggle('liked', book, chapter, verse, on);
-export const setSaved = (book, chapter, verse, on) => toggle('saved', book, chapter, verse, on);
+backend.ready.then(syncStore);
+backend.onChange(syncStore);
+export const loaded = () => !remote || state.collections.length > 0;
+
+// ---------- collections ----------
+
+const find = (id) => state.collections.find((c) => c.id === id);
+const byKind = (kind) => state.collections.find((c) => c.kind === kind);
+
+export const collections = () => state.collections.map(({ id, kind, name, items }) => ({ id, kind, name, count: items.length }));
+export const inCollection = (id, key) => keys.get(id)?.has(key) ?? false;
+export const isLiked = (key) => inCollection(byKind('likes')?.id, key);
+export const isSaved = (key) => inCollection(byKind('saved')?.id, key);
+
+// `verse` may be a verse object ({ number, text }) or just the number.
+export function setInCollection(id, book, chapter, verse, on) {
+  const c = find(id);
+  if (!c) return;
+  const ref = { book: book.id, chapter, verse: verse.number ?? verse, at: Date.now() };
+  const before = c.items;
+  c.items = c.items.filter((i) => refKey(i) !== refKey(ref));
+  if (on) c.items.push(ref);
+  commit();
+  persist(() => (on ? backend.activity.addItem(id, ref) : backend.activity.removeItem(id, ref)), () => { c.items = before; });
+}
+export const setLiked = (book, chapter, verse, on) => setInCollection(byKind('likes')?.id, book, chapter, verse, on);
+export const setSaved = (book, chapter, verse, on) => setInCollection(byKind('saved')?.id, book, chapter, verse, on);
+// The Library exists only in accounts: it's the collection friends can see.
+export const hasLibrary = () => Boolean(byKind('library'));
+export const inLibrary = (key) => inCollection(byKind('library')?.id, key);
+export const setInLibrary = (book, chapter, verse, on) => setInCollection(byKind('library')?.id, book, chapter, verse, on);
+
+export function createCollection(name) {
+  const c = { id: newId(), kind: 'custom', name, items: [] };
+  state.collections.push(c);
+  commit();
+  persist(() => backend.activity.createCollection(c), () => { state.collections = state.collections.filter((x) => x !== c); });
+  return c.id;
+}
+export function renameCollection(id, name) {
+  const c = find(id);
+  if (c?.kind !== 'custom') return;
+  const before = c.name;
+  c.name = name;
+  commit();
+  persist(() => backend.activity.renameCollection(id, name), () => { c.name = before; });
+}
+export function deleteCollection(id) {
+  const c = find(id);
+  if (c?.kind !== 'custom') return;
+  const before = state.collections;
+  state.collections = state.collections.filter((x) => x !== c);
+  commit();
+  persist(() => backend.activity.deleteCollection(id), () => { state.collections = before; });
+}
+
+// Items as the grids want them: { book (object), chapter, verse, at }, newest first.
+const expand = (ref) => ({ ...ref, book: bookById.get(ref.book) });
+const newestFirst = (items) => [...items].sort((a, b) => b.at - a.at).map(expand);
+export const collectionPosts = (id) => newestFirst(find(id)?.items || []);
+export const likedPosts = () => collectionPosts(byKind('likes')?.id);
+export const savedPosts = () => collectionPosts(byKind('saved')?.id);
+
+// ---------- comments ----------
 
 export const commentsFor = (key) =>
-  state.comments.filter((c) => c.key === key).sort((a, b) => a.at - b.at);
+  state.comments.filter((c) => refKey(c) === key).sort((a, b) => a.at - b.at);
+// Every comment of yours in a chapter, oldest first. A post shows the whole
+// chapter's comments, so one on Ezra 5:10 is met from any verse of Ezra 5.
+export const commentsInChapter = (bookId, chapter) =>
+  state.comments.filter((c) => c.book === bookId && c.chapter === chapter).sort((a, b) => a.at - b.at);
+
+// ---------- importing this browser's data into the account ----------
+
+const saveLocal = (local) => { try { localStorage.setItem(KEY, JSON.stringify(local)); } catch { /* storage unavailable */ } };
+
+// What this browser saved while signed out, if it hasn't been added to an account yet.
+// Null when there's nothing to add (or it's been added, or the offer was declined).
+export function importable() {
+  if (!remote) return null;
+  const local = loadLocal();
+  if (local.importedAt || local.importDismissed) return null;
+  const count = (kind) => local.collections.filter((c) => c.kind === kind).reduce((n, c) => n + c.items.length, 0);
+  const summary = { likes: count('likes'), saves: count('saved'), inCollections: count('custom'), comments: local.comments.length };
+  return summary.likes + summary.saves + summary.inCollections + summary.comments ? summary : null;
+}
+export function dismissImport() {
+  saveLocal({ ...loadLocal(), importDismissed: true });
+  notify();
+}
+
+// Adds this browser's likes, saves, collections and (optionally) comments to the
+// account, then reloads the account so memory matches. Items already there are
+// skipped by the database, so a second run adds nothing twice.
+export async function importLocal({ includeComments = true } = {}) {
+  if (!remote) return;
+  const local = loadLocal();
+  const items = [];
+  for (const lc of local.collections) {
+    if (!lc.items.length) continue;
+    let target = lc.kind === 'custom'
+      ? state.collections.find((c) => c.kind === 'custom' && c.name.toLowerCase() === lc.name.toLowerCase())
+      : byKind(lc.kind);
+    if (!target) {
+      target = { id: newId(), kind: 'custom', name: lc.name, items: [] };
+      await backend.activity.createCollection(target);
+    }
+    for (const i of lc.items) items.push({ collectionId: target.id, ...i });
+  }
+  for (let i = 0; i < items.length; i += 500) await backend.activity.addItems(items.slice(i, i + 500));
+  if (includeComments) {
+    const comments = local.comments.map((c) => ({ ...c, id: newId() })); // fresh ids: the same browser may feed two accounts
+    for (let i = 0; i < comments.length; i += 500) await backend.activity.addComments(comments.slice(i, i + 500));
+  }
+  saveLocal({ ...local, importedAt: Date.now() });
+  state = { ...empty(), ...await backend.fetchMyActivity() };
+  friendComments.clear();
+  commit();
+}
+
+// ---------- friends ----------
+
+export const friends = () => state.friends.filter((f) => f.accepted);
+export const friendRequests = () => state.friends.filter((f) => !f.accepted); // incoming and sent
+export const friendshipWith = (userId) => state.friends.find((f) => f.id === userId) || null;
+
+export function requestFriend({ id, username, displayName }) {
+  if (!remote || friendshipWith(id)) return;
+  const before = state.friends;
+  state.friends = [...state.friends, { id, username, displayName, accepted: false, incoming: false }];
+  commit();
+  persist(() => backend.friendships.request(id), () => { state.friends = before; });
+}
+export function acceptFriend(userId) {
+  const f = friendshipWith(userId);
+  if (!f || f.accepted || !f.incoming) return;
+  const before = state.friends;
+  state.friends = state.friends.map((x) => (x === f ? { ...x, accepted: true } : x));
+  friendComments.clear(); // their comments are visible now
+  commit();
+  persist(() => backend.friendships.accept(userId), () => { state.friends = before; });
+}
+// Declines, cancels or unfriends: all the same row going away.
+export function removeFriend(userId) {
+  const f = friendshipWith(userId);
+  if (!f) return;
+  const before = state.friends;
+  state.friends = state.friends.filter((x) => x !== f);
+  friendComments.clear();
+  commit();
+  persist(() => backend.friendships.remove(userId, f.incoming), () => { state.friends = before; });
+}
+
+// Your friends' comments on a chapter, each with its `author` profile. Fetched
+// from the account and remembered for a minute, so scrolling a feed doesn't
+// ask twice about the same chapter. Signed out there are no friends.
+const friendComments = new Map(); // "JHN.3" -> { at, comments }
+export async function friendsCommentsInChapter(bookId, chapter) {
+  if (!remote || !friends().length) return [];
+  const key = `${bookId}.${chapter}`;
+  const hit = friendComments.get(key);
+  if (hit && Date.now() - hit.at < 60_000) return hit.comments;
+  const byId = new Map(friends().map((f) => [f.id, f]));
+  const comments = (await backend.commentsBy([...byId.keys()], bookId, chapter))
+    .map(({ userId, ...c }) => ({ ...c, author: byId.get(userId) }));
+  friendComments.set(key, { at: Date.now(), comments });
+  return comments;
+}
 
 export function addComment(book, chapter, verse, text) {
-  const comment = {
-    id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-    key: postKey(book, chapter, verse.number),
-    ...snapshot(book, chapter, verse),
-    comment: text,
-    at: Date.now(),
-  };
-  state.comments.push(comment);
+  const comment = { id: newId(), book: book.id, chapter, verse: verse.number ?? verse, comment: text, at: Date.now() };
+  const before = state.comments;
+  state.comments = [...state.comments, comment];
   commit();
+  persist(() => backend.activity.addComment(comment), () => { state.comments = before; });
   return comment;
 }
 export function deleteComment(id) {
+  const before = state.comments;
   state.comments = state.comments.filter((c) => c.id !== id);
   commit();
+  persist(() => backend.activity.removeComment(id), () => { state.comments = before; });
 }
 
-const newestFirst = (items) => items.sort((a, b) => b.at - a.at).map(expand);
-export const likedPosts = () => newestFirst(Object.values(state.liked));
-export const savedPosts = () => newestFirst(Object.values(state.saved));
 // One entry per post, ordered by your most recent comment on it.
 export function commentedPosts() {
   const latest = new Map();
-  for (const c of state.comments) if (!latest.has(c.key) || latest.get(c.key).at < c.at) latest.set(c.key, c);
-  return newestFirst([...latest.values()]);
+  for (const c of state.comments) {
+    const k = refKey(c);
+    if (!latest.has(k) || latest.get(k).at < c.at) latest.set(k, c);
+  }
+  return newestFirst([...latest.values()].map(({ book, chapter, verse, at }) => ({ book, chapter, verse, at })));
 }
 export const commentCount = () => state.comments.length;
 
-export const following = () => new Set(state.following);
-export const isFollowing = (author) => state.following.includes(author);
-export function setFollowing(author, on) {
-  state.following = state.following.filter((a) => a !== author);
-  if (on) state.following.push(author);
-  commit();
-}
-
-// Pick up changes made in other tabs.
+// Pick up changes made in other tabs (signed out; signed in, each tab loads from the account).
 window.addEventListener('storage', (e) => {
-  if (e.key === KEY) {
-    state = load();
-    listeners.forEach((fn) => fn());
+  if (e.key === KEY && !remote) {
+    state = loadLocal();
+    reindex();
+    notify();
   }
 });

@@ -4,6 +4,7 @@ import { BOOKS, ageLabel, authorOf, handle } from './books.js';
 import { getChapter } from './bible.js';
 import { getComments, studyLinks } from './commentary.js';
 import * as activity from './activity.js';
+import * as backend from './backend.js';
 import { ICONS, PALETTES, avatarHtml, closeAllSheets, esc, hash, openSheet, profileHref, timeAgo, toast } from './ui.js';
 
 // Group the chapter into slides of roughly equal reading length.
@@ -87,6 +88,7 @@ export function renderPost(el, { book, chapter, verse, passage }) {
       <button class="icon-btn share-btn" aria-label="Share">${ICONS.share}</button>
       <div class="dots"></div>
       <span class="spacer"></span>
+      <button class="icon-btn library-btn${activity.inLibrary(key) ? ' in-library' : ''}" aria-label="Add to Library" title="Add to Library">${ICONS.library}</button>
       <button class="icon-btn save-btn${activity.isSaved(key) ? ' saved' : ''}" aria-label="Save">${ICONS.save}</button>
     </div>
     <div class="post-body">
@@ -149,10 +151,40 @@ export function renderPost(el, { book, chapter, verse, passage }) {
     setTimeout(() => burst.remove(), 850);
   });
 
-  el.querySelector('.save-btn').addEventListener('click', (e) => {
+  // Tap the bookmark to save; hold it (or right-click) to choose a collection.
+  const saveBtn = el.querySelector('.save-btn');
+  let holdTimer = null;
+  let held = false;
+  const startHold = () => {
+    held = false;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => { held = true; openCollections({ book, chapter, verse, key }); }, 450);
+  };
+  const endHold = () => clearTimeout(holdTimer);
+  saveBtn.addEventListener('pointerdown', startHold);
+  saveBtn.addEventListener('pointerup', endHold);
+  saveBtn.addEventListener('pointerleave', endHold);
+  saveBtn.addEventListener('pointercancel', endHold);
+  saveBtn.addEventListener('contextmenu', (e) => { e.preventDefault(); endHold(); openCollections({ book, chapter, verse, key }); });
+  saveBtn.addEventListener('click', (e) => {
+    if (held) { held = false; return; } // the hold already opened the sheet
     const on = e.currentTarget.classList.toggle('saved');
     activity.setSaved(book, chapter, verse, on);
     toast(on ? 'Saved' : 'Removed from saved');
+  });
+  // The sheet may have changed Saved; keep the bookmark honest.
+  el.drawSaved = () => saveBtn.classList.toggle('saved', activity.isSaved(key));
+
+  // The Library is the part of your account friends can see, so it needs an account.
+  el.querySelector('.library-btn').addEventListener('click', (e) => {
+    if (!activity.hasLibrary()) {
+      toast('Sign in to build a Library your friends can see');
+      if (backend.configured) location.hash = '#/signin';
+      return;
+    }
+    const on = e.currentTarget.classList.toggle('in-library');
+    activity.setInLibrary(book, chapter, verse, on);
+    toast(on ? 'Added to your Library' : 'Removed from your Library');
   });
 
   el.querySelector('.share-btn').addEventListener('click', async () => {
@@ -180,20 +212,22 @@ export function renderPost(el, { book, chapter, verse, passage }) {
   // Commentary is fetched only once the post is near the screen (or opened),
   // so long lists of posts don't fire hundreds of requests at once.
   const post = { book, chapter, verse, passage, ref, user, author, key };
-  post.loadComments = () => (post.comments ??= getComments(book, chapter, verse.number));
+  post.loadCommentary = () => (post.commentary ??= getComments(book, chapter, verse.number));
   const preview = el.querySelector('.comments-preview');
   preview.querySelector('.view-comments').addEventListener('click', () => openComments(post));
+  // "View commentary · 3 comments", then the latest comment in the chapter (or the first commentary line).
   const drawPreview = async () => {
-    const comments = await post.loadComments();
-    const mine = activity.commentsFor(key);
-    const total = comments.length + studyLinks(book, chapter, verse.number).length + mine.length;
-    const latestMine = mine[mine.length - 1];
-    const first = latestMine
-      ? { handle: 'you', summary: latestMine.comment }
-      : comments[0];
+    const [commentary, friendComments] = await Promise.all([post.loadCommentary(), activity.friendsCommentsInChapter(book.id, chapter)]);
+    post.friendComments = friendComments;
+    const all = chapterComments(post);
+    const latest = all[all.length - 1];
+    const n = all.length;
+    const line = latest
+      ? `<span class="user">${latest.author ? esc(latest.author.displayName) : 'you'}</span>${latest.verse !== verse.number ? `<span class="verse-tag">v. ${latest.verse}</span>` : ''}${esc(latest.comment)}`
+      : commentary[0] ? `<span class="user">${esc(commentary[0].handle)}</span>${esc(commentary[0].summary)}` : '';
     preview.innerHTML =
-      `<button class="view-comments">View all ${total} comments</button>` +
-      (first ? `<div class="preview-comment"><span class="user">${esc(first.handle)}</span>${esc(first.summary)}</div>` : '');
+      `<button class="view-comments">View commentary${n ? ` · ${n} comment${n === 1 ? '' : 's'}` : ''}</button>` +
+      (line ? `<div class="preview-comment">${line}</div>` : '');
     preview.querySelector('.view-comments').addEventListener('click', () => openComments(post));
   };
   post.onComment = drawPreview;
@@ -211,80 +245,138 @@ const previewObserver = new IntersectionObserver((entries) => {
   }
 }, { rootMargin: '400px' });
 
+// ---------- collections sheet ----------
+// Where to save a verse: Saved, your own collections, or a new one.
+
+const collectionsBackdrop = document.getElementById('collections-backdrop');
+const collectionsBody = document.getElementById('collections-body');
+let collectionsPost = null; // { book, chapter, verse, key }
+let newCollection = false;  // the "New collection" row is open as a form
+
+function drawCollections() {
+  if (!collectionsPost) return;
+  const { key } = collectionsPost;
+  const rows = activity.collections().filter((c) => c.kind === 'saved' || c.kind === 'custom');
+  collectionsBody.innerHTML = rows.map((c) => `
+      <button class="menu-item collection-row${activity.inCollection(c.id, key) ? ' on' : ''}" data-id="${c.id}">
+        <span class="check">${ICONS.check}</span><span class="collection-name">${esc(c.name)}</span><small>${c.count}</small>
+      </button>`).join('')
+    + (newCollection
+      ? `<form class="collection-form"><input name="name" maxlength="40" required placeholder="Collection name" autocomplete="off"><button class="primary-btn small" type="submit">Create</button></form>`
+      : '<button class="menu-item new-collection">+ New collection</button>');
+  if (newCollection) collectionsBody.querySelector('input').focus();
+}
+
+export function openCollections(post) {
+  collectionsPost = post;
+  newCollection = false;
+  drawCollections();
+  openSheet(collectionsBackdrop);
+}
+
+collectionsBody.addEventListener('click', (e) => {
+  const row = e.target.closest('.collection-row');
+  if (row && collectionsPost) {
+    const { book, chapter, verse } = collectionsPost;
+    const on = !row.classList.contains('on');
+    activity.setInCollection(row.dataset.id, book, chapter, verse, on);
+    drawCollections();
+    document.querySelectorAll('.post').forEach((p) => p.drawSaved?.());
+  } else if (e.target.closest('.new-collection')) {
+    newCollection = true;
+    drawCollections();
+  }
+});
+collectionsBody.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = e.target.name.value.trim();
+  if (!name || !collectionsPost) return;
+  const { book, chapter, verse } = collectionsPost;
+  const id = activity.createCollection(name);
+  activity.setInCollection(id, book, chapter, verse, true);
+  newCollection = false;
+  drawCollections();
+  toast(`Saved to ${name}`);
+});
+
 // ---------- comments sheet ----------
+// Two panes you swipe between (or tap the tabs): Commentary (the exegesis,
+// first), then Comments: yours and your friends', on this verse and elsewhere
+// in the chapter. Every list shows a few items and a "Show more".
 
 const commentsBackdrop = document.getElementById('comments-backdrop');
-const commentsBody = document.getElementById('comments-body');
+const commentsTitle = document.getElementById('comments-title');
+const commentsCaption = document.getElementById('comments-caption');
+const commentsTabs = document.getElementById('comments-tabs');
+const panes = document.getElementById('comments-panes');
+const commentaryPane = document.getElementById('commentary-pane');
+const commentsPane = document.getElementById('comments-pane');
 const commentForm = document.getElementById('comment-form');
 const commentInput = commentForm.querySelector('input');
 let currentPost = null;
+const SHOW = 3; // items per list before "Show more"
+let expanded = new Set(); // lists opened with "Show more" for the current post
 
-function drawMyComments() {
-  const box = commentsBody.querySelector('#my-comments');
-  if (!box || !currentPost) return;
-  const mine = activity.commentsFor(currentPost.key);
-  box.innerHTML = mine.length
-    ? `<div class="comments-section-title">Your comments</div>` +
-      mine
-        .map((c) => `
-        <div class="comment">
-          ${avatarHtml('You', { plain: true })}
-          <div class="comment-main">
-            <span class="user">you</span>${esc(c.comment)}
-            <div class="comment-actions"><span>${timeAgo(c.at)}</span><button class="delete-comment" data-id="${c.id}">Delete</button></div>
-          </div>
-        </div>`)
-        .join('')
-    : '';
+function showPane(i) {
+  panes.scrollTo({ left: i * panes.clientWidth, behavior: 'smooth' });
+}
+panes.addEventListener('scroll', () => {
+  const i = Math.round(panes.scrollLeft / panes.clientWidth);
+  commentsTabs.querySelectorAll('button').forEach((b, j) => b.classList.toggle('on', i === j));
+}, { passive: true });
+commentsTabs.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (b) showPane(Number(b.dataset.pane));
+});
+
+// A list capped at SHOW items. `tail` lists (a conversation) keep the newest
+// and offer the earlier ones; others keep the first and offer the rest.
+function cappedList(items, title, section, render, { tail = false } = {}) {
+  if (!items.length) return '';
+  const all = expanded.has(section) || items.length <= SHOW;
+  const shown = all ? items : tail ? items.slice(-SHOW) : items.slice(0, SHOW);
+  const hidden = items.length - shown.length;
+  const more = hidden ? `<button class="show-more" data-section="${section}">Show ${hidden} ${tail ? 'earlier' : 'more'}</button>` : '';
+  return `<div class="comments-section-title">${title}</div>${tail ? more : ''}${shown.map(render).join('')}${tail ? '' : more}`;
 }
 
-commentsBody.addEventListener('click', (e) => {
-  const del = e.target.closest('.delete-comment');
-  if (!del) return;
-  activity.deleteComment(del.dataset.id);
-  drawMyComments();
-  currentPost?.onComment?.();
-});
+// Yours have no `author` and can be deleted; a friend's shows their display name.
+function commentHtml(c, { verseTag = false } = {}) {
+  const name = c.author ? c.author.displayName : 'You';
+  const who = c.author ? `<a class="user" href="#/@${esc(c.author.username)}">${esc(name)}</a>` : '<span class="user">you</span>';
+  return `
+    <div class="comment">
+      ${c.author ? `<a href="#/@${esc(c.author.username)}">${avatarHtml(name, { plain: true })}</a>` : avatarHtml(name, { plain: true })}
+      <div class="comment-main">
+        ${who}${verseTag ? `<button class="verse-tag" data-verse="${c.verse}">v. ${c.verse}</button>` : ''}${esc(c.comment)}
+        <div class="comment-actions"><span>${timeAgo(c.at)}</span>${c.author ? '' : `<button class="delete-comment" data-id="${c.id}">Delete</button>`}</div>
+      </div>
+    </div>`;
+}
 
-commentForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const text = commentInput.value.trim();
-  if (!text || !currentPost) return;
+// Everyone's comments on the post's chapter: yours from memory, friends' as fetched for this post.
+const chapterComments = (post) =>
+  [...activity.commentsInChapter(post.book.id, post.chapter), ...(post.friendComments || [])].sort((a, b) => a.at - b.at);
+
+function drawComments() {
+  if (!currentPost) return;
   const { book, chapter, verse } = currentPost;
-  activity.addComment(book, chapter, verse, text);
-  commentInput.value = '';
-  commentForm.querySelector('button').disabled = true;
-  drawMyComments();
-  currentPost.onComment?.();
-  commentsBody.querySelector('#my-comments')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-});
-commentInput.addEventListener('input', () => {
-  commentForm.querySelector('button').disabled = !commentInput.value.trim();
-});
+  const all = chapterComments(currentPost);
+  const onVerse = all.filter((c) => c.verse === verse.number);
+  const elsewhere = all.filter((c) => c.verse !== verse.number).sort((a, b) => a.verse - b.verse || a.at - b.at);
+  commentsTabs.lastElementChild.textContent = all.length ? `Comments (${all.length})` : 'Comments';
+  commentsPane.innerHTML = (all.length
+    ? cappedList(onVerse, `On ${chapter}:${verse.number}`, 'verse', (c) => commentHtml(c), { tail: true })
+      + cappedList(elsewhere, `Elsewhere in ${esc(book.name)} ${chapter}`, 'chapter', (c) => commentHtml(c, { verseTag: true }))
+    : `<p class="empty">No comments yet on ${esc(book.name)} ${chapter}. Yours would be the first.</p>`)
+    + `<p class="copyright">${backend.signedIn() ? 'Your comments are saved to your account.' : 'Your comments are saved in this browser only.'}</p>`;
+}
 
-export async function openComments(post, { focus = false } = {}) {
-  currentPost = post;
-  const { book, chapter, verse, passage, ref, user, author } = post;
-  commentsBody.innerHTML = `
-    <div class="comment caption-comment">
-      <a href="${profileHref(author)}">${avatarHtml(author)}</a>
-      <div class="comment-main"><a class="user" href="${profileHref(author)}">${esc(user)}</a><strong>${esc(ref)}</strong> — ${esc(verse.text)}</div>
-    </div>
-    <div id="my-comments"></div>
-    <div class="sentinel"><div class="spinner"></div></div>`;
-  drawMyComments();
-  commentInput.value = '';
-  commentForm.querySelector('button').disabled = true;
-  openSheet(commentsBackdrop);
-  if (focus) commentInput.focus();
-
-  const comments = await post.loadComments();
-  if (currentPost !== post) return;
-  const links = studyLinks(book, chapter, verse.number);
-  const commentHtml = comments
-    .map((c, i) => {
-      const covers = c.from == null ? `${book.name} ${chapter} intro` : c.from === verse.number ? ref : `${book.name} ${chapter}:${c.from}ff`;
-      return `
+function drawCommentary(commentary, links) {
+  const { book, chapter, verse, ref, passage } = currentPost;
+  const summary = (c, i) => {
+    const covers = c.from == null ? `${book.name} ${chapter} intro` : c.from === verse.number ? ref : `${book.name} ${chapter}:${c.from}ff`;
+    return `
       <div class="comment">
         ${avatarHtml(c.handle, { plain: true })}
         <div class="comment-main">
@@ -296,13 +388,10 @@ export async function openComments(post, { focus = false } = {}) {
           </div>
         </div>
       </div>`;
-    })
-    .join('');
-
-  const linkHtml = links
-    .map((l) => {
-      const host = new URL(l.url).hostname.replace(/^www\./, '');
-      return `
+  };
+  const link = (l) => {
+    const host = new URL(l.url).hostname.replace(/^www\./, '');
+    return `
       <div class="comment">
         ${avatarHtml(host, { plain: true })}
         <div class="comment-main">
@@ -310,24 +399,87 @@ export async function openComments(post, { focus = false } = {}) {
           <div class="comment-actions"><a href="${esc(l.url)}" target="_blank" rel="noopener">Open ↗</a></div>
         </div>
       </div>`;
-    })
-    .join('');
-
-  commentsBody.querySelector('.sentinel').outerHTML = `
-    ${comments.length ? `<div class="comments-section-title">Commentary summaries</div>${commentHtml}` : '<div class="empty">No commentary summaries found for this verse.</div>'}
+  };
+  // Summaries keep their index so "Read more" can find the full text after the list is capped.
+  const indexed = commentary.map((c, i) => ({ ...c, i }));
+  commentaryPane.innerHTML = `
+    ${commentary.length
+      ? cappedList(indexed, 'Commentary summaries', 'commentary', (c) => summary(c, c.i))
+      : '<div class="empty">No commentary summaries found for this verse.</div>'}
     <div class="comments-section-title">More free commentaries</div>
-    ${linkHtml}
-    <p class="copyright">${esc(passage.copyright)} Commentary summaries are excerpts of public-domain works via the Free Use Bible API (bible.helloao.org). Your comments are saved in this browser only.</p>`;
-
-  commentsBody.querySelectorAll('.expand').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const span = commentsBody.querySelector(`.text[data-i="${btn.dataset.i}"]`);
-      span.textContent = comments[btn.dataset.i].full;
-      span.classList.add('full');
-      btn.remove();
-    });
-  });
+    ${links.map(link).join('')}
+    <p class="copyright">${esc(passage.copyright)} Commentary summaries are excerpts of public-domain works via the Free Use Bible API (bible.helloao.org).</p>`;
 }
+
+panes.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn || !currentPost) return;
+  if (btn.classList.contains('show-more')) {
+    expanded.add(btn.dataset.section);
+    if (btn.dataset.section === 'commentary') drawCommentary(currentPost.commentary, studyLinks(currentPost.book, currentPost.chapter, currentPost.verse.number));
+    else drawComments();
+  } else if (btn.classList.contains('delete-comment')) {
+    activity.deleteComment(btn.dataset.id);
+    drawComments();
+    currentPost.onComment?.();
+  } else if (btn.classList.contains('verse-tag')) {
+    // Go to that verse's own post, where the comment sits under "On 5:3".
+    closeAllSheets();
+    openPost(currentPost.book, currentPost.chapter, Number(btn.dataset.verse));
+  } else if (btn.classList.contains('expand')) {
+    const span = commentaryPane.querySelector(`.text[data-i="${btn.dataset.i}"]`);
+    span.textContent = currentPost.commentary[btn.dataset.i].full;
+    span.classList.add('full');
+    btn.remove();
+  }
+});
+
+commentForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = commentInput.value.trim();
+  if (!text || !currentPost) return;
+  const { book, chapter, verse } = currentPost;
+  activity.addComment(book, chapter, verse, text);
+  commentInput.value = '';
+  commentForm.querySelector('button').disabled = true;
+  drawComments();
+  currentPost.onComment?.();
+  showPane(1);
+  commentsPane.scrollTop = 0;
+});
+commentInput.addEventListener('input', () => {
+  commentForm.querySelector('button').disabled = !commentInput.value.trim();
+});
+
+export async function openComments(post, { focus = false } = {}) {
+  currentPost = post;
+  expanded = new Set();
+  const { book, chapter, verse, ref, user, author } = post;
+  commentsTitle.textContent = ref;
+  commentsCaption.innerHTML = `<a class="user" href="${profileHref(author)}">${esc(user)}</a>${esc(verse.text)}`;
+  commentaryPane.innerHTML = '<div class="sentinel"><div class="spinner"></div></div>';
+  drawComments();
+  commentInput.value = '';
+  commentInput.placeholder = `Comment on ${book.name} ${chapter}:${verse.number}…`;
+  commentForm.querySelector('button').disabled = true;
+  openSheet(commentsBackdrop);
+  panes.scrollTo({ left: 0 });
+  if (focus) commentInput.focus();
+
+  // Friends' comments arrive (or refresh) while the sheet is open; redraw when they do.
+  activity.friendsCommentsInChapter(book.id, chapter).then((fc) => {
+    if (currentPost !== post) return;
+    post.friendComments = fc;
+    drawComments();
+  }).catch(console.error);
+
+  const commentary = await post.loadCommentary();
+  if (currentPost !== post) return;
+  drawCommentary(commentary, studyLinks(book, chapter, verse.number));
+}
+
+// The account's comments arriving, or a change made elsewhere, redraws an open sheet.
+activity.onChange(() => { if (!commentsBackdrop.hidden) drawComments(); });
 
 // ---------- single post view ----------
 

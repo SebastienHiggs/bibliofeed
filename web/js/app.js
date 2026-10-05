@@ -2,14 +2,17 @@
 //   #/               feed
 //   #/search         search
 //   #/me[/tab]       your saved / liked / commented posts
+//   #/signin         sign in with an email code
 //   #/u/<handle>[/BOOK]  an author's profile, optionally filtered to one book
-import { ALL_AUTHORS, handle, randomChapter, randomFromWorks, worksOf } from './books.js';
+//   #/@<username>    another person's profile
+import { ALL_AUTHORS, handle, randomChapter } from './books.js';
 import { getChapter } from './bible.js';
-import * as activity from './activity.js';
 import { closeDetail, renderPost, skeletonHtml } from './post.js';
 import { hideProfile, showProfile } from './profile.js';
-import { hideAccount, showAccount } from './account.js';
+import { hideAccount, openAccountMenu, showAccount } from './account.js';
 import { hideSearch, showSearch } from './search.js';
+import { hideSignin, showSignin } from './signin.js';
+import { hideUser, showUser } from './user.js';
 import { avatarHtml, closeAllSheets, closeSheet, esc, profileHref } from './ui.js';
 
 const feedView = document.getElementById('feed-view');
@@ -19,13 +22,7 @@ const topbarBack = document.getElementById('topbar-back');
 const authorByHandle = new Map(ALL_AUTHORS.map((a) => [handle(a), a]));
 
 // ---------- feed ----------
-
-// Half the feed comes from authors you follow, if you follow anyone.
-function pickChapter() {
-  const follows = activity.following();
-  if (follows.size && Math.random() < 0.5) return randomFromWorks([...follows].flatMap(worksOf));
-  return randomChapter();
-}
+// Fully random: any chapter (all equally likely), then any verse in it.
 
 async function addPost() {
   const el = document.createElement('article');
@@ -34,7 +31,7 @@ async function addPost() {
   feed.append(el);
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    const { book, chapter } = pickChapter();
+    const { book, chapter } = randomChapter();
     try {
       const passage = await getChapter(book, chapter);
       if (!passage.verses.length) continue;
@@ -64,18 +61,14 @@ new IntersectionObserver((entries) => {
   if (entries.some((e) => e.isIntersecting)) loadMore();
 }, { rootMargin: '600px' }).observe(sentinel);
 
-// ---------- stories (authors, followed first) ----------
+// ---------- stories (every author, in a fixed order) ----------
 
 function renderStories() {
-  const follows = activity.following();
-  const authors = [...ALL_AUTHORS]
+  document.getElementById('stories').innerHTML = ALL_AUTHORS
     .filter((a) => a !== 'Unknown')
-    .sort((a, b) => follows.has(b) - follows.has(a));
-  document.getElementById('stories').innerHTML = authors
     .map((a) => `<a class="story" href="${profileHref(a)}">${avatarHtml(a)}<span class="story-name">${esc(handle(a))}</span></a>`)
     .join('');
 }
-activity.onChange(renderStories);
 
 // ---------- routing ----------
 
@@ -97,12 +90,20 @@ function route() {
   const hash = location.hash;
   const profile = hash.match(/^#\/u\/(\w+)(?:\/(\w+))?/);
   const author = profile && authorByHandle.get(profile[1]);
-  const next = author ? 'profile' : hash.startsWith('#/me') ? 'me' : hash.startsWith('#/search') ? 'search' : 'feed';
+  const person = hash.match(/^#\/@([a-z0-9_]+)/);
+  const next = author ? 'profile'
+    : person ? 'user'
+    : hash.startsWith('#/me') ? 'me'
+    : hash.startsWith('#/search') ? 'search'
+    : hash.startsWith('#/signin') ? 'signin'
+    : 'feed';
 
-  if (current !== next || next === 'profile' || next === 'me') {
+  if (current !== next || next === 'profile' || next === 'user' || next === 'me') {
     hideProfile();
+    hideUser();
     hideAccount();
     hideSearch();
+    hideSignin();
     feedView.hidden = next !== 'feed';
   }
   current = next;
@@ -110,12 +111,18 @@ function route() {
   if (next === 'profile') {
     setChrome('profile', handle(author));
     showProfile(author, profile[2]);
+  } else if (next === 'user') {
+    setChrome('user', `@${person[1]}`);
+    showUser(person[1]);
   } else if (next === 'me') {
     setChrome('me', 'Your activity');
     showAccount(hash.split('/')[2]);
   } else if (next === 'search') {
     setChrome('search', 'Search');
     showSearch();
+  } else if (next === 'signin') {
+    setChrome('signin', 'Sign in');
+    showSignin();
   } else {
     setChrome('feed', '');
     window.scrollTo({ top: feedScroll });
@@ -132,24 +139,64 @@ window.addEventListener('hashchange', () => {
   route();
 });
 topbarBack.addEventListener('click', (e) => {
-  // Your activity and Search are top-level pages: back always means the feed.
-  if (current === 'me' || current === 'search') return; // follows href="#/"
+  // Your activity, Search and Sign in are top-level pages: back always means the feed.
+  if (current === 'me' || current === 'search' || current === 'signin') return; // follows href="#/"
   if (depth > 0) {
     e.preventDefault();
     history.back();
   }
 });
 
-// A link to the page you're already on scrolls to the top and closes overlays.
+// Throw the feed away and start again with fresh random verses.
+function refreshFeed() {
+  feed.innerHTML = '';
+  feedScroll = 0;
+  window.scrollTo({ top: 0 });
+  loadMore();
+}
+
+// A link to the page you're already on scrolls to the top and closes overlays;
+// at the top of the feed it refreshes instead. On your own page, the account
+// button opens your account menu.
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href^="#/"]');
   if (!a) return;
+  if (a.dataset.nav === 'me' && current === 'me') {
+    e.preventDefault();
+    openAccountMenu();
+    return;
+  }
   const same = a.getAttribute('href') === location.hash || (a.getAttribute('href') === '#/' && !location.hash);
   if (!same) return;
   e.preventDefault();
   closeAllSheets();
   closeDetail();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (current === 'feed' && window.scrollY < 40) refreshFeed();
+  else window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Pull down at the top of the feed to refresh it (touch only; the indicator
+// grows as you pull and the feed reloads if you let go past the threshold).
+const pullIndicator = document.getElementById('pull-refresh');
+const PULL_THRESHOLD = 70;
+let pullStart = null;
+document.addEventListener('touchstart', (e) => {
+  const blocked = document.querySelector('.sheet-backdrop:not([hidden])') || !document.getElementById('post-detail').hidden;
+  pullStart = current === 'feed' && window.scrollY === 0 && !blocked ? e.touches[0].clientY : null;
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  if (pullStart == null) return;
+  const dy = e.touches[0].clientY - pullStart;
+  pullIndicator.style.height = `${Math.min(Math.max(dy, 0) / 2, 56)}px`;
+  pullIndicator.classList.toggle('ready', dy > PULL_THRESHOLD);
+}, { passive: true });
+document.addEventListener('touchend', () => {
+  if (pullStart == null) return;
+  const ready = pullIndicator.classList.contains('ready');
+  pullIndicator.style.height = '';
+  pullIndicator.classList.remove('ready');
+  pullStart = null;
+  if (ready) refreshFeed();
 });
 
 document.querySelectorAll('.sheet-backdrop').forEach((bd) => {
