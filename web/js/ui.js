@@ -23,7 +23,6 @@ export const ICONS = {
   burst: HEART,
   comment: '<svg viewBox="0 0 24 24"><path d="M20.5 11.5a8.5 8.5 0 0 1-12.4 7.6L3.5 20.5l1.4-4.4A8.5 8.5 0 1 1 20.5 11.5z"/></svg>',
   share: '<svg viewBox="0 0 24 24"><path d="M21.5 2.5 10 14M21.5 2.5 14.5 21.5l-4.5-7.5-7.5-4.5z"/></svg>',
-  save: '<svg viewBox="0 0 24 24"><path d="M19 21l-7-5.5L5 21V3.5h14z"/></svg>',
   prev: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
   next: '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
   grid: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>',

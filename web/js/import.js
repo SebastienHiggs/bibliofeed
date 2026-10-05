@@ -8,11 +8,10 @@ const body = document.getElementById('import-body');
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-// "1 like, 12 saves, 3 in collections and 4 comments"
+// "12 likes, 3 in collections and 4 comments"
 export function describe(s) {
   const parts = [];
   if (s.likes) parts.push(plural(s.likes, 'like'));
-  if (s.saves) parts.push(plural(s.saves, 'save'));
   if (s.inCollections) parts.push(`${s.inCollections} in collections`);
   if (s.comments) parts.push(plural(s.comments, 'comment'));
   return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0] || 'nothing';

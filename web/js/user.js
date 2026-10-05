@@ -33,6 +33,9 @@ export async function showUser(username) {
     current = { profile, library: null };
     render();
     window.scrollTo({ top: 0 });
+    // They may have asked you since the app started: check before trusting the button.
+    await activity.refreshFriends().catch(console.error);
+    if (my !== gen) return;
     loadLibrary(my);
   } catch (err) {
     console.error(err);

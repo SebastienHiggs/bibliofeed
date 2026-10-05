@@ -83,8 +83,8 @@ rest of the UI calls them directly. `onChange(fn)` notifies views when anything 
 | **Friends only. Following is removed entirely**, including following Bible authors. | Following another user felt wrong to the owner, and following authors added little. | One-way follows. |
 | **The feed is fully random, as if you followed every author**: a random chapter (all 1,189 equally likely), then a random verse in it. This is what the app does today without follows. | The owner confirmed chapter-first is right. Verses in short chapters come up more often; that's accepted. | Every verse equally likely. Every book equally likely. |
 | **Friends' library items appear only on their profiles**, never in the main feed. | Keeps the feed purely Bible verses. | |
-| **Collections**: one table for likes, saves and the library. Every user gets three built-ins (Likes, Saved, Library) and can make their own. | Likes and saves are the same structure already. One table instead of three. | Separate `likes`, `saves` and `reposts` tables. |
-| **Visibility depends on collection type, with no setting.** Library is visible to friends. Likes, Saved and custom collections are private. | No visibility column or UI. | A private/friends switch per collection (easy to add later). |
+| **Collections**: one table for likes, the library and your own collections. Every user gets two built-ins (Likes, Library) and can make their own. | Likes and the rest are the same structure. One table instead of several. | Separate `likes`, `saves` and `reposts` tables. A built-in Saved beside Likes (there until 5 Oct 2026: the owner found three built-ins too many; the heart now likes on a tap and offers collections on a hold). |
+| **Visibility depends on collection type, with no setting.** Library is visible to friends. Likes and custom collections are private. | No visibility column or UI. | A private/friends switch per collection (easy to add later). |
 | **Comments are visible to you and your friends.** They can be deleted but not edited, matching today's app. | No visibility column. | Per-comment visibility. |
 | **A comment is stored against a verse but shown chapter-wide.** The comments sheet on any post lists the whole chapter's comments from you and your friends: those on this verse first, then "Elsewhere in Ezra 5", each tagged "v. 10". | The feed is random over 31,102 verses, so a comment pinned to one verse was almost never met again; a chapter comes round about 26 times more often. The query is a prefix of the comments index, so nothing in the schema changes. | Making the chapter the unit of comments (verse optional): one small migration later if people want to comment on a chapter as a whole. Comments at chapter level for likes and saves too: no, the thing you like is the verse. |
 | **A verse is identified by `(book, chapter, verse)`**, e.g. `('JHN', 3, 16)`, using the 3-letter codes in `web/js/books.js`. There is no `posts` table and no UUID per verse. | References never change, match the URLs and the local data, and are as fast to look up as a UUID. | A `verses` table with 31,102 UUID rows: joins everywhere for no gain. |
@@ -296,7 +296,7 @@ tiles.
 | --- | --- |
 | `#/u/<handle>` | A Bible author's profile (unchanged) |
 | `#/@<username>` | A user's profile: display name, username, the friend button and, for friends, their Library |
-| `#/me[/tab]` | Your own private view: Saved (with Library and your collections as chips, Library first), Likes, comments, friends and friend requests. The top-bar account button becomes a gear here and opens the account menu (sign in or out, import, delete). The space where counts sat is kept empty for a later reading-streak feature |
+| `#/me[/tab]` | Your own private view: Library first (signed in), then Collections (Liked and each of your own as chips), comments, friends and friend requests. The top-bar account button becomes a gear here and opens the account menu (sign in or out, import, delete). The space where counts sat is kept empty for a later reading-streak feature |
 | `#/signin` | Email, then code, then (first time) username and display name |
 
 ### Sign-in flow
@@ -521,6 +521,16 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   starts a stack on every pull request and runs them, then `supabase/tests/run.sh`. Writing them found a
   race: a new collection and the verse saved into it were sent in parallel, so the item could be refused.
   Account writes now go out one after another, in order.
+- **Liked replaces Saved (5 Oct 2026)**, at the owner's request: three built-ins were too many. The heart
+  likes on a tap and opens the collections sheet (Liked, your own, New) on a hold or right-click; the
+  bookmark is gone. Migration `20261005150000_liked_replaces_saved.sql` turns any Saved collection with
+  verses into an ordinary collection called "Saved", drops empty ones, narrows the kind check and stops
+  the trigger creating Saved; the browser's local data does the same when it loads (version 3). The
+  account page is now Library, Collections (Liked first as a chip), Comments, Friends.
+- **Friend requests that arrive while the app is open (5 Oct 2026)**: friendships were loaded once at
+  startup, so the other person's profile still said "Add friend" and the insert was refused by the
+  one-row-per-pair index. Opening a profile or the Friends tab refreshes friendships first, and a refused
+  request refreshes them instead of complaining.
 - **Going public (5 Oct 2026)**: MIT `LICENSE`, `/about` and `/contributing` as static pages (served by
   `server.js` and the build like `index.html`; Cloudflare serves `about.html` at `/about` by default), links
   to both in the account menu, and a short `CONTRIBUTING.md`. Checked in the browser against the local
