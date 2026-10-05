@@ -80,10 +80,11 @@ export const ready = (async () => {
 
 // ---------- signing in ----------
 
-// Emails a 6-digit code; creates the account if the email is new.
-export async function requestCode(email) {
+// Emails a 6-digit code; creates the account if the email is new. The captcha
+// token comes from js/captcha.js (undefined when the bot check is off).
+export async function requestCode(email, captchaToken) {
   const c = await client();
-  unwrap(await c.auth.signInWithOtp({ email }));
+  unwrap(await c.auth.signInWithOtp({ email, options: { captchaToken } }));
 }
 
 export async function verifyCode(email, token) {

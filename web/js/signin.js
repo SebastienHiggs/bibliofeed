@@ -1,6 +1,7 @@
 // Sign in: your email, then the 6-digit code it receives, then (the first
 // time) a username and display name.
 import * as backend from './backend.js';
+import * as captcha from './captcha.js';
 import { esc, toast } from './ui.js';
 
 const view = document.getElementById('signin-view');
@@ -32,11 +33,13 @@ const STEPS = {
     <h2>Sign in</h2>
     <p class="muted">Enter your email and we’ll send you a 6-digit code. There’s no password. A new email makes a new account.</p>
     <label>Email <input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@example.com" value="${esc(email)}"></label>
+    <div class="turnstile"></div>
     <button class="primary-btn" type="submit">Send code</button>`,
   code: () => `
     <h2>Check your email</h2>
     <p class="muted">We sent a code to <b>${esc(email)}</b>. It works for 10 minutes.</p>
     <label>Code <input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required placeholder="123456"></label>
+    <div class="turnstile"></div>
     <button class="primary-btn" type="submit">Sign in</button>
     <p class="auth-links"><button type="button" class="link" data-action="resend">Send a new code</button> · <button type="button" class="link" data-action="change">Use a different email</button></p>`,
   profile: () => `
@@ -52,6 +55,7 @@ const STEPS = {
 function explain(err) {
   if (err.code === '23505') return 'That username is taken.';
   if (err.code === '23514') return 'That username isn’t allowed.';
+  if (/captcha/i.test(err.message)) return 'The bot check didn’t pass. Reload the page and try again.';
   if (/expired|invalid/i.test(err.message)) return 'That code isn’t right, or it has expired. Ask for a new one.';
   return err.message || 'Something went wrong. Please try again.';
 }
@@ -63,6 +67,9 @@ function render() {
   const button = form.querySelector('.primary-btn');
   form.querySelector('input')?.focus();
   form.querySelector('[name="username"]')?.addEventListener('input', (e) => { e.target.value = e.target.value.toLowerCase(); });
+  // The bot check sits on the two steps that can send an email (the code step can resend).
+  const slot = form.querySelector('.turnstile');
+  if (slot) captcha.mount(slot).catch((err) => { console.error(err); error.textContent = err.message; error.hidden = false; });
 
   form.addEventListener('click', (e) => {
     const action = e.target.closest('[data-action]')?.dataset.action;
@@ -78,7 +85,7 @@ function render() {
     try {
       if (step === 'email' || action === 'resend') {
         if (step === 'email') email = form.email.value.trim();
-        await backend.requestCode(email);
+        await backend.requestCode(email, await captcha.take());
         if (action === 'resend') toast('New code sent');
         else { step = 'code'; render(); return; }
       } else if (step === 'code') {

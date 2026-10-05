@@ -68,7 +68,10 @@ security decides who may see what. The plan and the schema are in
 [`../docs/supabase-backend/`](../docs/supabase-backend/README.md) and [`../supabase/`](../supabase/).
 
 - **`js/config.js`** holds the project URL and publishable key. Both are public by design. With both
-  empty, the app has no accounts and works exactly as it did before.
+  empty, the app has no accounts and works exactly as it did before. It also holds the Cloudflare
+  Turnstile site key (public too): the sign-in form runs Turnstile's bot check and sends its token with
+  the code request, so the email endpoint can't be used to spam addresses. With the site key empty, as on
+  the local stack, there's no bot check and nothing loads from Cloudflare.
 - **`js/backend.js`** is the only module that talks to Supabase. Signed out, the app never loads the
   Supabase library or makes a request.
 - **`js/activity.js`** is one synchronous store with two homes. Signed out it's localStorage. Signed in,
@@ -117,6 +120,7 @@ build command and root directory. Every push to another branch then gets its own
 | `js/books.js` | The 66 books: codes, chapter counts, authors, bios |
 | `scripts/fetch-bible.mjs` | Downloads the BSB into the shared `../data/bsb/` |
 | `js/backend.js`, `js/config.js` | Talking to Supabase (sign-in, your profile), and where it lives |
+| `js/captcha.js` | The Turnstile bot check on the sign-in form (only when `config.js` has a site key) |
 | `scripts/build.mjs` | Builds `dist/` from the source, `node_modules` (supabase-js) and `../data/bsb/` |
 | `server.js` | Zero-dependency static server for local development |
 | `wrangler.jsonc` | Cloudflare config: serve `dist/` as static assets |

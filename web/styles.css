@@ -404,6 +404,9 @@ a.primary-btn:hover { text-decoration: none; }
 .auth-error { color: var(--like); font-size: 13px; }
 .auth-error[hidden] { display: none; }
 .auth-links { color: var(--muted); font-size: 13px; }
+/* The Turnstile widget: nothing to see unless Cloudflare needs a tap, so no gap when it's empty. */
+.turnstile:empty { display: none; }
+.turnstile { margin: -4px 0; }
 
 /* ---------- Comments sheet: caption, tabs, swipeable panes ---------- */
 .sheet-tall { height: 82vh; }

@@ -359,7 +359,12 @@ changes it:
    Amazon SES are options; pick one whose privacy terms you're comfortable with, since it sees email
    addresses. At a million users expect tens of thousands of sign-in emails a day.
 5. **Bot protection**: turn on Supabase's captcha with Cloudflare Turnstile (privacy-friendly, no puzzles
-   for most people) on the sign-in form, so the email endpoint can't be used to spam addresses.
+   for most people) on the sign-in form, so the email endpoint can't be used to spam addresses. Built on
+   5 Oct 2026: `web/js/captcha.js` renders the widget (invisible unless Cloudflare needs a tap) and the
+   token goes with `signInWithOtp`; `[remotes.production.auth.captcha]` in `config.toml` turns the check
+   on for the hosted project with the secret from the `TURNSTILE_SECRET_KEY` environment variable. The
+   site key goes in `web/js/config.js`; locally the check is off (see the comment in `config.toml` for
+   trying it with Turnstile's test keys).
 6. **Compute**: start on the Pro plan's default instance. Nothing here is CPU-heavy, but a few hundred
    million `collection_items` rows need disk, and the connection pooler should be on for the apps. Watch
    the dashboard's slow-query report; any query over a few milliseconds means a policy or index changed.
@@ -440,7 +445,8 @@ two: `delete_my_account()` deletes from `auth.users` as intended, and new projec
 1. **`delete_my_account()` on the hosted project**: the local stack says yes; confirm once on the hosted
    one, since role privileges there could differ. If it fails, the alternative is an Edge Function using
    the admin API. That would be the only server code.
-2. **Rate limits on code emails**: the defaults with custom SMTP, and the Turnstile setup.
+2. **Rate limits on code emails**: the defaults with custom SMTP. (The Turnstile setup was verified on
+   the local stack on 5 Oct 2026, below; what's left is creating the widget and pushing the secret.)
 
 ## Decisions taken by the owner, 4 Oct 2026
 
@@ -503,3 +509,11 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   fresh ids; original timestamps are kept; the browser remembers it has imported (or declined). Verified
   on the local stack. **All six build steps are done**; what remains is the hosted project, the
   `config.js` values, and the open-source housekeeping listed above.
+- **Turnstile on the sign-in form (5 Oct 2026)**: `web/js/captcha.js`, the token passed through
+  `backend.requestCode`, and `[auth.captcha]` in `config.toml` (off locally, on for the hosted project
+  through `[remotes.production]`, secret from the environment). Verified against the local stack with the
+  check turned on and Turnstile's test keys: without a token the auth server refuses the code request
+  (`captcha protection: request disallowed`); with the always-passing site key the widget stays invisible,
+  the code email arrives, and "Send a new code" gets a fresh token; with the key that forces a challenge
+  the checkbox appears in the form, "Send code" waits for it, and the email goes once it's ticked. With
+  the check off and no site key, no Cloudflare script loads and sign-in is unchanged.
