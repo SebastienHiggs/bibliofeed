@@ -6,5 +6,5 @@
 // While developing, put the local stack's values (`npx supabase status`) in
 // js/config.local.js, which isn't committed; server.js serves it in place of
 // this file.
-export const SUPABASE_URL = '';
-export const SUPABASE_KEY = '';
+export const SUPABASE_URL = 'https://qtbcnuaveggytezonxle.supabase.co';
+export const SUPABASE_KEY = 'sb_publishable_Qj_aiJ_MJZxsrkuXMiuaMg_vEpPPtsh';
