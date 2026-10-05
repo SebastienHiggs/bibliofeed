@@ -16,33 +16,40 @@ const KEY = 'verse-feed:activity';
 const bookById = new Map(BOOKS.map((b) => [b.id, b]));
 export const newId = () => crypto.randomUUID();
 
-// Likes and Saved are collections like any other; everyone has them. (Accounts
-// also have a Library, which exists to be seen by friends.)
-const BUILTIN = [['likes', 'Likes'], ['saved', 'Saved']];
+// Likes is a collection like any other; everyone has it. (Accounts also have a
+// Library, which exists to be seen by friends.)
+const BUILTIN = [['likes', 'Likes']];
 const empty = () => ({
-  version: 2,
+  version: 3,
   collections: BUILTIN.map(([kind, name]) => ({ id: kind, kind, name, items: [] })),
   comments: [],
   friends: [], // signed in only: everyone with a friendship row, accepted or pending
   importedAt: null, // set once this browser's data has been added to an account
 });
 
-// Version 1 kept `liked` and `saved` maps with a copy of each verse's text, and
-// a list of followed authors. Only the references and comments carry over.
-function upgrade(v1) {
-  const s = empty();
-  const refs = (map) => Object.values(map || {}).map(({ book, chapter, verse, at }) => ({ book, chapter, verse, at }));
-  s.collections[0].items = refs(v1.liked);
-  s.collections[1].items = refs(v1.saved);
-  s.comments = (v1.comments || []).map(({ id, book, chapter, verse, comment, at }) => ({ id, book, chapter, verse, comment, at }));
-  return s;
+// Older data. Version 1 kept `liked` and `saved` maps with a copy of each
+// verse's text, and a list of followed authors; version 2 had a built-in Saved
+// collection beside Likes. Saved verses become an ordinary collection called
+// "Saved" (dropped if there were none), and the references and comments carry over.
+const refs = (map) => Object.values(map || {}).map(({ book, chapter, verse, at }) => ({ book, chapter, verse, at }));
+function upgrade(data) {
+  const v2 = data.version === 2 ? data : {
+    collections: [{ id: 'likes', kind: 'likes', name: 'Likes', items: refs(data.liked) }, { id: 'saved', kind: 'saved', name: 'Saved', items: refs(data.saved) }],
+    comments: (data.comments || []).map(({ id, book, chapter, verse, comment, at }) => ({ id, book, chapter, verse, comment, at })),
+    importedAt: null,
+  };
+  const collections = (v2.collections || []).flatMap((c) => {
+    if (c.kind !== 'saved') return [c];
+    return c.items.length ? [{ ...c, id: newId(), kind: 'custom' }] : [];
+  });
+  return { ...empty(), ...v2, version: 3, collections };
 }
 
 function loadLocal() {
   try {
     const data = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (!data) return empty();
-    return data.version === 2 ? { ...empty(), ...data } : upgrade(data);
+    return data.version === 3 ? { ...empty(), ...data } : upgrade(data);
   } catch {
     return empty();
   }
@@ -58,7 +65,7 @@ const notify = () => listeners.forEach((fn) => fn());
 export const postKey = (book, chapter, verse) => `${book.id}.${chapter}.${verse}`;
 const refKey = ({ book, chapter, verse }) => `${book}.${chapter}.${verse}`;
 
-// For fast isLiked/isSaved checks while the feed renders.
+// For fast isLiked checks while the feed renders.
 let keys = new Map(); // collection id -> Set of keys
 const reindex = () => { keys = new Map(state.collections.map((c) => [c.id, new Set(c.items.map(refKey))])); };
 reindex();
@@ -122,7 +129,6 @@ const byKind = (kind) => state.collections.find((c) => c.kind === kind);
 export const collections = () => state.collections.map(({ id, kind, name, items }) => ({ id, kind, name, count: items.length }));
 export const inCollection = (id, key) => keys.get(id)?.has(key) ?? false;
 export const isLiked = (key) => inCollection(byKind('likes')?.id, key);
-export const isSaved = (key) => inCollection(byKind('saved')?.id, key);
 
 // `verse` may be a verse object ({ number, text }) or just the number.
 export function setInCollection(id, book, chapter, verse, on) {
@@ -136,7 +142,6 @@ export function setInCollection(id, book, chapter, verse, on) {
   persist(() => (on ? backend.activity.addItem(id, ref) : backend.activity.removeItem(id, ref)), () => { c.items = before; });
 }
 export const setLiked = (book, chapter, verse, on) => setInCollection(byKind('likes')?.id, book, chapter, verse, on);
-export const setSaved = (book, chapter, verse, on) => setInCollection(byKind('saved')?.id, book, chapter, verse, on);
 // The Library exists only in accounts: it's the collection friends can see.
 export const hasLibrary = () => Boolean(byKind('library'));
 export const inLibrary = (key) => inCollection(byKind('library')?.id, key);
@@ -171,7 +176,7 @@ const expand = (ref) => ({ ...ref, book: bookById.get(ref.book) });
 const newestFirst = (items) => [...items].sort((a, b) => b.at - a.at).map(expand);
 export const collectionPosts = (id) => newestFirst(find(id)?.items || []);
 export const likedPosts = () => collectionPosts(byKind('likes')?.id);
-export const savedPosts = () => collectionPosts(byKind('saved')?.id);
+export const libraryPosts = () => collectionPosts(byKind('library')?.id);
 
 // ---------- comments ----------
 
@@ -193,8 +198,8 @@ export function importable() {
   const local = loadLocal();
   if (local.importedAt || local.importDismissed) return null;
   const count = (kind) => local.collections.filter((c) => c.kind === kind).reduce((n, c) => n + c.items.length, 0);
-  const summary = { likes: count('likes'), saves: count('saved'), inCollections: count('custom'), comments: local.comments.length };
-  return summary.likes + summary.saves + summary.inCollections + summary.comments ? summary : null;
+  const summary = { likes: count('likes'), inCollections: count('custom'), comments: local.comments.length };
+  return summary.likes + summary.inCollections + summary.comments ? summary : null;
 }
 export function dismissImport() {
   saveLocal({ ...loadLocal(), importDismissed: true });

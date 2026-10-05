@@ -19,11 +19,11 @@ test('sign in with an emailed code, stay signed in across a reload, sign out', a
   await expect(page.locator('.profile-bio')).toHaveText('Your activity is saved in this browser only.');
 });
 
-test('likes, saves and comments belong to the account and survive a reload', async ({ page }) => {
+test('likes, the Library and comments belong to the account and survive a reload', async ({ page }) => {
   await signIn(page, newPerson('bob'));
   const post = await openVerse(page, 'John 3:16');
   await post.locator('.like-btn').click();
-  await post.locator('.save-btn').click();
+  await post.locator('.library-btn').click();
   await post.locator('.add-comment').click();
   await page.locator('#comment-form input').fill('The whole gospel in one verse.');
   await page.locator('#comment-form button').click();
@@ -32,16 +32,13 @@ test('likes, saves and comments belong to the account and survive a reload', asy
   // Signed in, the account is the only store, so after a reload everything comes back from it.
   await synced(page);
   await page.reload();
-  await page.goto('/#/me/liked');
-  await expect(page.getByRole('button', { name: 'John 3:16' })).toBeVisible();
-  await page.goto('/#/me/saved');
-  await page.locator('[data-collection]', { hasText: 'Saved' }).click(); // the Saved tab opens on the Library
-  await expect(page.getByRole('button', { name: 'John 3:16' })).toBeVisible();
-  await page.goto('/#/me/comments');
-  await expect(page.getByRole('button', { name: 'John 3:16' })).toBeVisible();
+  for (const tab of ['library', 'collections', 'comments']) { // Collections opens on Liked
+    await page.goto(`/#/me/${tab}`);
+    await expect(page.getByRole('button', { name: 'John 3:16' })).toBeVisible();
+  }
   const again = await openVerse(page, 'John 3:16');
   await expect(again.locator('.like-btn')).toHaveClass(/liked/);
-  await expect(again.locator('.save-btn')).toHaveClass(/saved/);
+  await expect(again.locator('.library-btn')).toHaveClass(/in-library/);
   await again.locator('.comment-btn').click();
   await expect(page.locator('#comments-pane .comment')).toContainText('The whole gospel in one verse.');
 });
@@ -73,12 +70,12 @@ test.describe.serial('friends', () => {
     await a.getByRole('button', { name: 'Add friend' }).click();
     await expect(a.getByRole('button', { name: 'Requested' })).toBeVisible();
 
-    // Bob opens the app afresh, sees the request on his Friends tab and accepts.
+    // Bob's app has been open all along; Alice's profile still shows her request, and he accepts there.
     await synced(a);
-    await b.goto('/#/me/friends');
-    await b.reload();
-    await expect(b.locator('#account-view')).toContainText(alice.display);
+    await b.goto(`/#/@${alice.username}`);
     await b.getByRole('button', { name: 'Accept' }).click();
+    await expect(b.getByRole('button', { name: 'Friends', exact: true })).toBeVisible();
+    await b.goto('/#/me/friends');
     await expect(b.locator('#account-view')).toContainText('1 friend');
 
     // Alice's view of Bob now says Friends.
@@ -122,25 +119,26 @@ test("a browser's signed-out activity can be added to the account", async ({ pag
 
   await synced(page);
   await page.reload();
-  for (const tab of ['liked', 'comments']) {
+  for (const tab of ['collections', 'comments']) {
     await page.goto(`/#/me/${tab}`);
     await expect(page.getByRole('button', { name: 'Psalms 23:1' })).toBeVisible();
   }
 });
 
-test('a verse saved into a new collection is listed on the Saved tab', async ({ page }) => {
+test('a verse put in a new collection is listed under its chip on the Collections tab', async ({ page }) => {
   await signIn(page, newPerson('dave'));
   const post = await openVerse(page, 'Genesis 1:1');
-  await post.locator('.save-btn').click({ button: 'right' }); // right-click (or hold) picks the collection
+  await post.locator('.like-btn').click({ button: 'right' }); // right-click (or hold) the heart picks a collection
   const sheet = page.locator('#collections-backdrop');
   await sheet.getByRole('button', { name: '+ New collection' }).click();
   await sheet.locator('input[name="name"]').fill('Beginnings');
   await sheet.getByRole('button', { name: 'Create' }).click();
   await expect(sheet.locator('.collection-row.on')).toContainText('Beginnings');
+  await expect(post.locator('.like-btn')).not.toHaveClass(/liked/); // a collection is not a like
 
   await synced(page);
   await page.reload();
-  await page.goto('/#/me/saved');
+  await page.goto('/#/me/collections');
   await page.locator('[data-collection]', { hasText: 'Beginnings' }).click();
   await expect(page.getByRole('button', { name: 'Genesis 1:1' })).toBeVisible();
 });

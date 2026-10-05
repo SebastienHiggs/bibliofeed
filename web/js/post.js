@@ -89,7 +89,6 @@ export function renderPost(el, { book, chapter, verse, passage }) {
       <div class="dots"></div>
       <span class="spacer"></span>
       <button class="icon-btn library-btn${activity.inLibrary(key) ? ' in-library' : ''}" aria-label="Add to Library" title="Add to Library">${ICONS.library}</button>
-      <button class="icon-btn save-btn${activity.isSaved(key) ? ' saved' : ''}" aria-label="Save">${ICONS.save}</button>
     </div>
     <div class="post-body">
       <p class="caption clamped"><a class="user" href="${profileHref(author)}">${esc(user)}</a><strong>${esc(ref)}</strong> — ${esc(verse.text)}
@@ -131,7 +130,8 @@ export function renderPost(el, { book, chapter, verse, passage }) {
   if (slideCount === 1) next.hidden = true;
   drawDots();
 
-  // Like / double-tap
+  // The heart: tap (or double-tap the card) to like; hold it, or right-click, to
+  // choose a collection instead.
   const likeBtn = el.querySelector('.like-btn');
   const setLiked = (on) => {
     if (on === likeBtn.classList.contains('liked')) return;
@@ -139,7 +139,29 @@ export function renderPost(el, { book, chapter, verse, passage }) {
     likeBtn.setAttribute('aria-pressed', on);
     activity.setLiked(book, chapter, verse, on);
   };
-  likeBtn.addEventListener('click', () => setLiked(!likeBtn.classList.contains('liked')));
+  let holdTimer = null;
+  let held = false;
+  const startHold = () => {
+    held = false;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => { held = true; openCollections({ book, chapter, verse, key }); }, 450);
+  };
+  const endHold = () => clearTimeout(holdTimer);
+  likeBtn.addEventListener('pointerdown', startHold);
+  likeBtn.addEventListener('pointerup', endHold);
+  likeBtn.addEventListener('pointerleave', endHold);
+  likeBtn.addEventListener('pointercancel', endHold);
+  likeBtn.addEventListener('contextmenu', (e) => { e.preventDefault(); endHold(); openCollections({ book, chapter, verse, key }); });
+  likeBtn.addEventListener('click', () => {
+    if (held) { held = false; return; } // the hold already opened the sheet
+    setLiked(!likeBtn.classList.contains('liked'));
+  });
+  // The sheet may have changed Likes; keep the heart honest.
+  el.drawLiked = () => {
+    const on = activity.isLiked(key);
+    likeBtn.classList.toggle('liked', on);
+    likeBtn.setAttribute('aria-pressed', on);
+  };
   const carousel = el.querySelector('.carousel');
   carousel.addEventListener('dblclick', (e) => {
     if (e.target.closest('.nav-arrow')) return;
@@ -150,30 +172,6 @@ export function renderPost(el, { book, chapter, verse, passage }) {
     carousel.append(burst);
     setTimeout(() => burst.remove(), 850);
   });
-
-  // Tap the bookmark to save; hold it (or right-click) to choose a collection.
-  const saveBtn = el.querySelector('.save-btn');
-  let holdTimer = null;
-  let held = false;
-  const startHold = () => {
-    held = false;
-    clearTimeout(holdTimer);
-    holdTimer = setTimeout(() => { held = true; openCollections({ book, chapter, verse, key }); }, 450);
-  };
-  const endHold = () => clearTimeout(holdTimer);
-  saveBtn.addEventListener('pointerdown', startHold);
-  saveBtn.addEventListener('pointerup', endHold);
-  saveBtn.addEventListener('pointerleave', endHold);
-  saveBtn.addEventListener('pointercancel', endHold);
-  saveBtn.addEventListener('contextmenu', (e) => { e.preventDefault(); endHold(); openCollections({ book, chapter, verse, key }); });
-  saveBtn.addEventListener('click', (e) => {
-    if (held) { held = false; return; } // the hold already opened the sheet
-    const on = e.currentTarget.classList.toggle('saved');
-    activity.setSaved(book, chapter, verse, on);
-    toast(on ? 'Saved' : 'Removed from saved');
-  });
-  // The sheet may have changed Saved; keep the bookmark honest.
-  el.drawSaved = () => saveBtn.classList.toggle('saved', activity.isSaved(key));
 
   // The Library is the part of your account friends can see, so it needs an account.
   el.querySelector('.library-btn').addEventListener('click', (e) => {
@@ -246,7 +244,7 @@ const previewObserver = new IntersectionObserver((entries) => {
 }, { rootMargin: '400px' });
 
 // ---------- collections sheet ----------
-// Where to save a verse: Saved, your own collections, or a new one.
+// Where to put a verse: Liked, your own collections, or a new one.
 
 const collectionsBackdrop = document.getElementById('collections-backdrop');
 const collectionsBody = document.getElementById('collections-body');
@@ -256,10 +254,10 @@ let newCollection = false;  // the "New collection" row is open as a form
 function drawCollections() {
   if (!collectionsPost) return;
   const { key } = collectionsPost;
-  const rows = activity.collections().filter((c) => c.kind === 'saved' || c.kind === 'custom');
+  const rows = activity.collections().filter((c) => c.kind === 'likes' || c.kind === 'custom');
   collectionsBody.innerHTML = rows.map((c) => `
       <button class="menu-item collection-row${activity.inCollection(c.id, key) ? ' on' : ''}" data-id="${c.id}">
-        <span class="check">${ICONS.check}</span><span class="collection-name">${esc(c.name)}</span><small>${c.count}</small>
+        <span class="check">${ICONS.check}</span><span class="collection-name">${c.kind === 'likes' ? 'Liked' : esc(c.name)}</span><small>${c.count}</small>
       </button>`).join('')
     + (newCollection
       ? `<form class="collection-form"><input name="name" maxlength="40" required placeholder="Collection name" autocomplete="off"><button class="primary-btn small" type="submit">Create</button></form>`
@@ -281,7 +279,7 @@ collectionsBody.addEventListener('click', (e) => {
     const on = !row.classList.contains('on');
     activity.setInCollection(row.dataset.id, book, chapter, verse, on);
     drawCollections();
-    document.querySelectorAll('.post').forEach((p) => p.drawSaved?.());
+    document.querySelectorAll('.post').forEach((p) => p.drawLiked?.());
   } else if (e.target.closest('.new-collection')) {
     newCollection = true;
     drawCollections();
@@ -296,7 +294,7 @@ collectionsBody.addEventListener('submit', (e) => {
   activity.setInCollection(id, book, chapter, verse, true);
   newCollection = false;
   drawCollections();
-  toast(`Saved to ${name}`);
+  toast(`Added to ${name}`);
 });
 
 // ---------- comments sheet ----------

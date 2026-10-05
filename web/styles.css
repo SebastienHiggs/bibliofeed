@@ -168,7 +168,6 @@ body[data-view="me"] .icon-gear { display: block; }
 .dots i.on { background: var(--accent); }
 .dots i.small { transform: scale(.7); }
 .like-btn.liked svg { fill: var(--like); stroke: var(--like); animation: pop .35s ease; }
-.save-btn.saved svg { fill: currentColor; }
 .library-btn.in-library svg { fill: currentColor; animation: pop .35s ease; }
 @keyframes pop { 50% { transform: scale(1.25); } }
 

@@ -47,12 +47,12 @@ select t_check('search finds people by username and by display name',
 
 -- Collections
 select t_as(:'A');
-select t_check('new profile gets Likes, Saved and Library',
-  (select array_agg(kind order by kind) from collections) = '{library,likes,saved}');
+select t_check('new profile gets Likes and Library',
+  (select array_agg(kind order by kind) from collections) = '{library,likes}');
 select t_check('cannot create a second Likes', t_fails($$insert into collections (kind, name) values ('likes', 'x')$$));
 insert into collections (name) values ('Psalms I love');
 select t_check('built-in collections cannot be renamed', t_rows($$update collections set name = 'x' where kind = 'likes'$$) = 0);
-select t_check('built-in collections cannot be deleted', t_rows($$delete from collections where kind = 'saved'$$) = 0);
+select t_check('built-in collections cannot be deleted', t_rows($$delete from collections where kind = 'library'$$) = 0);
 select t_check('custom collections can be renamed', t_rows($$update collections set name = 'Psalms' where kind = 'custom'$$) = 1);
 select t_check('collection kind cannot be changed', t_fails($$update collections set kind = 'library' where kind = 'custom'$$));
 
@@ -77,7 +77,7 @@ select t_as(:'A'); select t_check('friend_ids from the other side', (select arra
 -- Collection items and comments: A and B are friends, C is friends with no one.
 select t_as(:'A');
 insert into collection_items (collection_id, book, chapter, verse)
-  select id, 'JHN', 3, 16 from collections where user_id = :'A' and kind in ('likes', 'saved', 'library');
+  select id, 'JHN', 3, 16 from collections where user_id = :'A' and kind in ('likes', 'library');
 insert into comments (book, chapter, verse, body) values ('JHN', 3, 16, 'from A');
 select t_check('bad book codes are refused',
   t_fails($$insert into comments (book, chapter, verse, body) values ('John', 3, 16, 'x')$$));

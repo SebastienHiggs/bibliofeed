@@ -1,7 +1,7 @@
 // Entry point: the feed, the stories row, and routing between views.
 //   #/               feed
 //   #/search         search
-//   #/me[/tab]       your saved / liked / commented posts
+//   #/me[/tab]       your library, liked posts and collections, comments, friends
 //   #/signin         sign in with an email code
 //   #/u/<handle>[/BOOK]  an author's profile, optionally filtered to one book
 //   #/@<username>    another person's profile

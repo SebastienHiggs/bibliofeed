@@ -1,5 +1,6 @@
-// Your account page: saved, liked and commented posts; signed in, also your
-// friends and friend requests, and Settings (sign out, delete account).
+// Your account page: your Library, your liked posts and collections, and your
+// comments; signed in, also your friends and friend requests, and the account
+// menu (sign out, delete account).
 import * as activity from './activity.js';
 import * as backend from './backend.js';
 import { onDetailClose, openPosts } from './post.js';
@@ -11,21 +12,23 @@ const settingsBackdrop = document.getElementById('settings-backdrop');
 const settingsBody = document.getElementById('settings-body');
 
 const TABS = {
-  saved: { icon: ICONS.save, label: 'Saved', list: () => activity.collectionPosts(selectedCollection().id), empty: 'Tap the bookmark on any post to save it here. Hold it to save into a collection.' },
-  liked: { icon: ICONS.heart, label: 'Liked', list: activity.likedPosts, empty: 'Posts you like (tap the heart or double-tap) show up here.' },
+  library: { icon: ICONS.library, label: 'Library', list: activity.libraryPosts, signedIn: true, empty: 'Tap Add to Library on a post to put it here. Your Library is what friends see on your profile.' },
+  collections: { icon: ICONS.heart, label: 'Collections', list: () => activity.collectionPosts(selectedCollection().id) },
   comments: { icon: ICONS.comment, label: 'Comments', list: activity.commentedPosts, empty: 'Posts you comment on show up here.' },
   friends: { icon: ICONS.people, label: 'Friends', signedIn: true },
 };
 const tabs = () => Object.entries(TABS).filter(([, t]) => !t.signedIn || backend.signedIn());
-let tab = 'saved';
+const defaultTab = () => (backend.signedIn() ? 'library' : 'collections');
+let tab = 'collections';
 
-// The Saved tab shows one collection at a time: Saved, one of your own, or (signed in) your Library.
-let collectionId = null;   // null means Saved
+// The Collections tab shows one collection at a time, Liked first, then your own.
+let collectionId = null;   // null means Liked
 let editing = null;        // 'new' | a collection id being renamed | null
-const ORDER = { library: 0, saved: 1, custom: 2 };
-const shown = () => activity.collections().filter((c) => c.kind !== 'likes').sort((a, b) => ORDER[a.kind] - ORDER[b.kind]);
+const ORDER = { likes: 0, custom: 1 };
+const shown = () => activity.collections().filter((c) => c.kind !== 'library').sort((a, b) => (ORDER[a.kind] ?? 1) - (ORDER[b.kind] ?? 1));
+const label = (c) => (c.kind === 'likes' ? 'Liked' : c.name);
 function selectedCollection() {
-  return shown().find((c) => c.id === collectionId) || shown()[0] || { id: null, kind: 'saved', name: 'Saved', count: 0 };
+  return shown().find((c) => c.id === collectionId) || shown()[0] || { id: null, kind: 'likes', name: 'Likes', count: 0 };
 }
 
 const abbrev = (name) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
@@ -34,7 +37,7 @@ function chipsHtml() {
   const current = selectedCollection();
   const chip = (c) => `
     <button class="highlight${c.id === current.id ? ' on' : ''}" data-collection="${c.id}">
-      <span class="hl-ring"><b>${c.kind === 'library' ? ICONS.library : esc(abbrev(c.name))}</b></span><span class="hl-name">${esc(c.name)}</span>
+      <span class="hl-ring"><b>${c.kind === 'likes' ? ICONS.heart : esc(abbrev(c.name))}</b></span><span class="hl-name">${esc(label(c))}</span>
     </button>`;
   const form = (value, placeholder) => `
     <form class="collection-form chips-form"><input name="name" maxlength="40" required placeholder="${placeholder}" value="${esc(value)}" autocomplete="off">
@@ -46,12 +49,11 @@ function chipsHtml() {
       ${shown().map(chip).join('')}
       <button class="highlight" data-collection="new"><span class="hl-ring"><b>+</b></span><span class="hl-name">New</span></button>
     </div>
-    ${current.kind === 'custom' ? `<p class="hint-row collection-tools"><button class="link" data-rename>Rename</button> · <button class="link danger" data-delete>Delete</button></p>`
-      : current.kind === 'library' ? '<p class="hint-row">Your Library is what friends see on your profile.</p>' : ''}`;
+    ${current.kind === 'custom' ? `<p class="hint-row collection-tools"><button class="link" data-rename>Rename</button> · <button class="link danger" data-delete>Delete</button></p>` : ''}`;
 }
 
 export function showAccount(which) {
-  tab = TABS[which] ? which : 'saved';
+  tab = TABS[which] ? which : defaultTab();
   view.hidden = false;
   render();
   window.scrollTo({ top: 0 });
@@ -109,8 +111,8 @@ function friendsHtml() {
 }
 
 function render() {
-  // A signed-in-only tab falls back to Saved until the account has signed in (e.g. during startup).
-  const active = TABS[tab].signedIn && !backend.signedIn() ? 'saved' : tab;
+  // A signed-in-only tab falls back to Collections until the account has signed in (e.g. during startup).
+  const active = TABS[tab].signedIn && !backend.signedIn() ? 'collections' : tab;
   const posts = TABS[active].list ? TABS[active].list() : [];
   const name = backend.me?.profile?.displayName || 'You';
   view.innerHTML = `
@@ -124,14 +126,16 @@ function render() {
     <nav class="profile-tabs account-tabs">
       ${tabs().map(([id, x]) => `<a class="${id === active ? 'on' : ''}" href="#/me/${id}" aria-label="${x.label}">${x.icon}</a>`).join('')}
     </nav>
-    ${active === 'saved' && activity.loaded() ? chipsHtml() : ''}
+    ${active === 'collections' && activity.loaded() ? chipsHtml() : ''}
     ${!activity.loaded() ? '<div class="sentinel"><div class="spinner"></div></div>'
       : active === 'friends' ? friendsHtml()
       : posts.length ? '<div class="grid" id="account-grid"></div>'
-      : `<p class="empty">${active === 'saved' && selectedCollection().kind !== 'saved' ? `Nothing in ${esc(selectedCollection().name)} yet.` : TABS[active].empty}</p>`}`;
+      : `<p class="empty">${active !== 'collections' ? TABS[active].empty
+        : selectedCollection().kind === 'likes' ? 'Tap the heart on any post, or double-tap it, to like it. Hold the heart to put it in a collection.'
+        : `Nothing in ${esc(selectedCollection().name)} yet. Hold the heart on a post to put it here.`}</p>`}`;
 
   const grid = view.querySelector('#account-grid');
-  const title = active === 'saved' ? selectedCollection().name : TABS[active].label;
+  const title = active === 'collections' ? label(selectedCollection()) : TABS[active].label;
   if (grid) posts.forEach((p, i) => grid.append(tileEl(p, () => openPosts(posts, i, { title, subtitle: name }))));
   view.querySelector('.chips-form input')?.focus();
 }
