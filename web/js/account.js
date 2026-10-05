@@ -78,7 +78,7 @@ function identityHtml() {
   }
   return `
     <div class="profile-name">You</div>
-    <p class="profile-bio muted">Your activity is saved in this browser only${backend.configured ? '.' : '!'}</p>
+    <p class="profile-bio muted">Your activity is saved in this browser only.</p>
     ${backend.configured ? '<div class="profile-buttons"><a class="primary-btn" href="#/signin">Sign in</a></div>' : ''}`;
 }
 
