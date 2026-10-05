@@ -55,6 +55,8 @@ export function showAccount(which) {
   view.hidden = false;
   render();
   window.scrollTo({ top: 0 });
+  // Requests arrive while the app is open; the list redraws itself when they do (onChange below).
+  if (tab === 'friends') activity.refreshFriends().catch(console.error);
 }
 
 export function hideAccount() {

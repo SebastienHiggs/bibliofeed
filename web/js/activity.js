@@ -236,12 +236,28 @@ export const friends = () => state.friends.filter((f) => f.accepted);
 export const friendRequests = () => state.friends.filter((f) => !f.accepted); // incoming and sent
 export const friendshipWith = (userId) => state.friends.find((f) => f.id === userId) || null;
 
+// Friendships change on the other person's side too, so a view that shows one
+// asks the account again instead of trusting what was loaded at startup.
+export async function refreshFriends() {
+  if (!remote) return;
+  const user = remote;
+  const friends = await backend.fetchFriends();
+  if (remote !== user) return; // signed out meanwhile
+  state.friends = friends;
+  friendComments.clear();
+  commit();
+}
+
 export function requestFriend({ id, username, displayName }) {
   if (!remote || friendshipWith(id)) return;
   const before = state.friends;
   state.friends = [...state.friends, { id, username, displayName, accepted: false, incoming: false }];
   commit();
-  persist(() => backend.friendships.request(id), () => { state.friends = before; });
+  persist(() => backend.friendships.request(id).catch((err) => {
+    // One row per pair: if they asked first, show their request rather than an error.
+    if (err.code === '23505') return refreshFriends();
+    throw err;
+  }), () => { state.friends = before; });
 }
 export function acceptFriend(userId) {
   const f = friendshipWith(userId);

@@ -145,6 +145,9 @@ export async function fetchMyActivity() {
 
 // Everyone you have a friendship row with (the rules only show your own), as
 // { id, username, displayName, accepted, incoming }. `incoming` means they asked you.
+export async function fetchFriends() {
+  return fetchFriendships(await client());
+}
 async function fetchFriendships(c) {
   const rows = unwrap(await c.from('friendships').select('requester, addressee, accepted'));
   if (!rows.length) return [];
