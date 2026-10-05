@@ -109,9 +109,11 @@ In the Cloudflare dashboard: **Workers & Pages → Create application → Connec
 | Deploy command | `npx wrangler deploy` |
 | Advanced settings → Path | `web` |
 
-`wrangler.jsonc` tells Cloudflare to serve only `dist/` as static files. There's no server code and no
-environment variables: the Supabase URL and key are committed in `js/config.js` (see above). Cloudflare runs
-`npm install` before the build command. Every push to `main` redeploys the live site.
+`wrangler.jsonc` tells Cloudflare to serve `dist/` as static files. The only code that runs on Cloudflare is
+`redirect.js`, which sends the old `bibliofeed.sebastienjhiggs.workers.dev` address to bibliofeed.net and
+hands every other request to those files. There are no environment variables: the Supabase URL and key are
+committed in `js/config.js` (see above). Cloudflare runs `npm install` before the build command. Every push
+to `main` redeploys the live site.
 
 **Preview builds:** in **Settings → Build → Previews Base**, turn on *Builds for Preview branches* with the same
 build command and root directory. Every push to another branch then gets its own preview link.
@@ -139,7 +141,7 @@ build command and root directory. Every push to another branch then gets its own
 | `scripts/build.mjs` | Builds `dist/` from the source, `node_modules` (supabase-js) and `../data/bsb/` |
 | `server.js` | Zero-dependency static server for local development (serves the Bible text from `../data/bsb/` too) |
 | `e2e/`, `playwright.config.js` | The browser tests (`npm test`), see Tests above |
-| `wrangler.jsonc` | Cloudflare config: serve `dist/` as static assets |
+| `wrangler.jsonc`, `redirect.js` | Cloudflare config: serve `dist/` as static assets, after a one-check Worker that redirects the old `workers.dev` address |
 
 ## Ideas for later
 

@@ -44,7 +44,9 @@ Not being built yet, but the design must leave room for them:
 
 ## What the owner cares about
 
-- **Simple and maintainable** over feature-rich. No server code, no placeholders for future features.
+- **Simple and maintainable** over feature-rich. No server code (the one exception, since 5 Oct 2026, is
+  `web/redirect.js`: a hostname check that sends the old `workers.dev` address to bibliofeed.net), no
+  placeholders for future features.
 - **Privacy.** No data mining, no analytics, no tracking. Store only what the app needs to work.
 - **Signed out, the app works as it does now**, with no backend at all.
 - **Android and iOS apps are coming**, so nothing here should be web-only.
