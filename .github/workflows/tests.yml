@@ -1,0 +1,58 @@
+# Every pull request: the browser tests (web/e2e) and the access-rule tests
+# (supabase/tests) run against a local Supabase stack started on the runner.
+# `workflow_dispatch` lets anyone with write access run it on a branch by hand.
+name: Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-stack:
+    name: Browser and access-rule tests on the local stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      npm_config_yes: 'true' # let `npx supabase` fetch the CLI without a prompt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Start the local Supabase stack
+        run: npx supabase start -x studio,imgproxy,postgres-meta,vector,logflare,supavisor
+
+      - name: Point the app at the stack
+        run: |
+          eval "$(npx supabase status -o env)"
+          printf "export const SUPABASE_URL = '%s';\nexport const SUPABASE_KEY = '%s';\nexport const TURNSTILE_SITE_KEY = '';\n" \
+            "$API_URL" "$PUBLISHABLE_KEY" > web/js/config.local.js
+
+      - name: Install the app's dependencies and a browser
+        working-directory: web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        working-directory: web
+        run: npm test
+
+      - name: Keep the report of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 7
+
+      - name: Access-rule tests
+        run: sh supabase/tests/run.sh
