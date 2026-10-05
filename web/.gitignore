@@ -3,3 +3,6 @@ dist/
 node_modules/
 # Points a developer's browser at a local Supabase stack; see js/config.js.
 js/config.local.js
+# Playwright output (npm test)
+test-results/
+playwright-report/

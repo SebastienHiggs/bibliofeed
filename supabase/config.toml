@@ -213,10 +213,15 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
-# [auth.captcha]
-# enabled = true
-# provider = "hcaptcha"
-# secret = ""
+# Off locally, so the tests and anyone's browser can sign in without Cloudflare;
+# the hosted project turns it on below. To try the whole bot check locally, set
+# enabled = true with Turnstile's always-passing test secret
+# "1x0000000000000000000000000000000AA", put the matching test site key
+# "1x00000000000000000000AA" in web/js/config.local.js, and restart the stack.
+[auth.captcha]
+enabled = false
+provider = "turnstile"
+secret = "env(TURNSTILE_SECRET_KEY)"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
@@ -438,6 +443,16 @@ additional_redirect_urls = ["https://bibliofeed.net"]
 [remotes.production.auth.email]
 # One code email per address per minute; locally it's 1s so tests can resend.
 max_frequency = "1m0s"
+
+# Cloudflare Turnstile on the sign-in form (web/js/captcha.js sends the token
+# with the code request). The widget's secret key is never written down here:
+# set TURNSTILE_SECRET_KEY in the shell that runs `supabase config push`, along
+# with RESEND_API_KEY. Turn this on only once a build with the site key in
+# web/js/config.js is live, or nobody can sign in.
+[remotes.production.auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "env(TURNSTILE_SECRET_KEY)"
 
 # Sign-in emails go out through Resend. Supabase's own mailer can't send our
 # code template (free tier), so this must be in place before anyone signs in.

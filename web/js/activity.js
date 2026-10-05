@@ -72,9 +72,12 @@ function commit() {
 }
 
 // Signed in: send the change to the account; if that fails, put things back.
+// Changes go out one after another, in the order they were made, so a new
+// collection always exists before the first verse saved into it arrives.
+let sending = Promise.resolve();
 function persist(send, undo) {
   if (!remote) return;
-  send().catch((err) => {
+  sending = sending.then(send).catch((err) => {
     console.error(err);
     undo();
     commit();

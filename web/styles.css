@@ -404,6 +404,9 @@ a.primary-btn:hover { text-decoration: none; }
 .auth-error { color: var(--like); font-size: 13px; }
 .auth-error[hidden] { display: none; }
 .auth-links { color: var(--muted); font-size: 13px; }
+/* The Turnstile widget: nothing to see unless Cloudflare needs a tap, so no gap when it's empty. */
+.turnstile:empty { display: none; }
+.turnstile { margin: -4px 0; }
 
 /* ---------- Comments sheet: caption, tabs, swipeable panes ---------- */
 .sheet-tall { height: 82vh; }
@@ -466,3 +469,20 @@ a.menu-item { color: inherit; text-decoration: none; }
 /* Years since it was written, next to the poster's name. */
 .post-meta .dot { color: var(--muted); margin: 0 4px; }
 .post-meta .age { color: var(--muted); }
+
+/* ---------- Static pages: /about and /contributing ---------- */
+body.page { padding-bottom: 48px; font-size: 15px; line-height: 1.55; }
+body.page .topbar-back { margin-left: -8px; }
+.page-nav a { font-weight: 600; padding: 0 8px; }
+.page-body { max-width: 600px; margin: 0 auto; padding: 20px 16px 24px; }
+.page-body h1 { font: italic 600 32px/1.15 "Playfair Display", Georgia, serif; letter-spacing: -0.5px; margin: 8px 0 12px; }
+.page-body h2 { font-size: 19px; margin: 30px 0 8px; }
+.page-body h3 { font-size: 15px; margin: 20px 0 6px; }
+.page-body p, .page-body ul { margin: 0 0 12px; }
+.page-body ul { padding-left: 20px; }
+.page-body li { margin-bottom: 6px; }
+.page-body .lede { font-size: 17px; color: var(--muted); }
+.page-body a { text-decoration: underline; text-underline-offset: 2px; }
+.page-body code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--skeleton); padding: 1px 5px; border-radius: 5px; }
+.page-body pre { background: var(--skeleton); padding: 12px 14px; border-radius: 10px; overflow-x: auto; margin: 0 0 14px; }
+.page-body pre code { background: none; padding: 0; }

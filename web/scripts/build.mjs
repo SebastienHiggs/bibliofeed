@@ -20,7 +20,7 @@ if (!existsSync(supabaseJs)) {
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(`${dist}data/bsb`, { recursive: true });
 mkdirSync(`${dist}vendor`);
-for (const f of ['index.html', 'styles.css', 'icon.svg']) cpSync(`${root}${f}`, `${dist}${f}`);
+for (const f of ['index.html', 'about.html', 'contributing.html', 'styles.css', 'icon.svg']) cpSync(`${root}${f}`, `${dist}${f}`);
 // js/config.local.js points a developer's browser at a local Supabase stack; it never ships.
 cpSync(`${root}js`, `${dist}js`, { recursive: true, filter: (src) => !src.endsWith('config.local.js') });
 cpSync(supabaseJs, `${dist}vendor/supabase.js`);

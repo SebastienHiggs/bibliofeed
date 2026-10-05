@@ -6,9 +6,11 @@
     "build": "node scripts/build.mjs",
     "fetch-bible": "node scripts/fetch-bible.mjs",
     "start": "node server.js",
-    "preview": "node server.js dist"
+    "preview": "node server.js dist",
+    "test": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@supabase/supabase-js": "2.117.2"
   }
 }

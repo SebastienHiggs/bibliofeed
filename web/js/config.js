@@ -8,3 +8,9 @@
 // this file.
 export const SUPABASE_URL = 'https://qtbcnuaveggytezonxle.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Qj_aiJ_MJZxsrkuXMiuaMg_vEpPPtsh';
+
+// Cloudflare Turnstile on the sign-in form (js/captcha.js). The site key is
+// public; the matching secret lives only in the Supabase project's auth
+// settings (supabase/config.toml, [remotes.production.auth.captcha]). Empty
+// means no bot check, which is how the local stack runs.
+export const TURNSTILE_SITE_KEY = '0x4AAAAAAFON5Oo_tItcGWqn';
