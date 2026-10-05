@@ -24,9 +24,19 @@ if [ "$1" = "--plain" ]; then
   [ -n "$SCALE" ] && psql -q -v ON_ERROR_STOP=1 -d "$DB" -f scale.sql | summarise
   dropdb "$DB"
 else
+  # The first project_id is the local stack's; [remotes.production] has another.
+  PROJECT=$(sed -n 's/^project_id = "\(.*\)"$/\1/p' ../config.toml | head -1)
+  DB="supabase_db_$PROJECT"
+  START=$(date -u +%Y-%m-%dT%H:%M:%S)
   (cd .. && npx supabase db reset)
-  PROJECT=$(sed -n 's/^project_id = "\(.*\)"$/\1/p' ../config.toml)
-  run() { tr -d '\r' < "$1" | docker exec -i "supabase_db_$PROJECT" psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres; }
+  # The reset recreates the database container shortly *after* it returns. Give the new
+  # container up to 20s to appear, then wait until it answers.
+  for i in $(seq 1 20); do
+    [ "$(docker inspect -f '{{.State.StartedAt}}' "$DB" 2>/dev/null | cut -c1-19)" \> "$START" ] && break
+    sleep 1
+  done
+  for i in $(seq 1 30); do docker exec "$DB" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+  run() { tr -d '\r' < "$1" | docker exec -i "$DB" psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres; }
   run access-rules.sql
   [ -n "$SCALE" ] && run scale.sql | summarise
   echo "Note: the local database now holds the test users. Run 'supabase db reset' before using it for development."

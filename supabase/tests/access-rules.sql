@@ -27,7 +27,11 @@ set role authenticated;
 
 -- Profiles
 select t_as(:'A');
-select t_check('reserved usernames are refused', t_fails($$insert into profiles (username, display_name) values ('admin', 'P')$$));
+select t_check('reserved usernames are refused', t_fails($$insert into profiles (username, display_name) values ('admin', 'P')$$)
+  and t_fails($$insert into profiles (username, display_name) values ('support', 'S')$$)
+  and t_fails($$insert into profiles (username, display_name) values ('jesus', 'J')$$));
+select t_check('Bible author names are allowed', not t_fails($$insert into profiles (username, display_name) values ('paul', 'Paul')$$));
+reset role; delete from profiles where username = 'paul'; set role authenticated; -- users can't delete profiles; the owner can
 select t_check('uppercase usernames are refused', t_fails($$insert into profiles (username, display_name) values ('Alice', 'A')$$));
 select t_check('cannot create a profile for someone else',
   t_fails(format($$insert into profiles (id, username, display_name) values (%L, 'bob', 'B')$$, :'B')));
