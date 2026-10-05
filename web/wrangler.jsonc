@@ -3,6 +3,12 @@
 {
   "name": "bibliofeed",
   "compatibility_date": "2025-09-01",
+  // Wrangler runs this before deploying, so the build is defined here in the
+  // repo rather than typed into Cloudflare's settings. Leave the dashboard's
+  // build command empty (or set it to `npm run build`; running twice is harmless).
+  "build": {
+    "command": "npm run build"
+  },
   "assets": {
     "directory": "./dist"
   },

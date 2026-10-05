@@ -85,7 +85,7 @@ In the Cloudflare dashboard: **Workers & Pages → Create application → Connec
 | Setting | Value |
 | --- | --- |
 | Project name | `bibliofeed` (must match `name` in `wrangler.jsonc`) |
-| Build command | `npm run build` |
+| Build command | leave empty (`wrangler.jsonc` tells Wrangler to run `npm run build` before deploying) |
 | Deploy command | `npx wrangler deploy` |
 | Advanced settings → Path | `web` |
 
