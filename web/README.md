@@ -121,6 +121,7 @@ build command and root directory. Every push to another branch then gets its own
 | File | Purpose |
 | --- | --- |
 | `index.html`, `styles.css` | Layout and styling |
+| `about.html`, `contributing.html` | The static pages at `/about` and `/contributing`, linked from the account menu |
 | `js/app.js` | Feed, stories row and routing between views |
 | `js/post.js` | A post: carousel, likes, saves, comments sheet, single-post view |
 | `js/profile.js`, `js/account.js`, `js/search.js` | The author profile, your-activity (friends, Settings) and search views |

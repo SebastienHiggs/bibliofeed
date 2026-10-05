@@ -390,12 +390,12 @@ The site is at **bibliofeed.net**, and the repository is to become public.
   gh api repos/SebastienHiggs/bibliofeed/rulesets --input .github/main-ruleset.json
   ```
 
-- **Two pages to write**, as static files in `web/`: `/about` (what the site is, where the text comes from,
-  what is stored about you) and `/contributing` (how to run the app and the local Supabase stack, how
-  changes are reviewed). The current `web/README.md` and this folder are the raw material. They are not part
-  of the backend work and can be done any time.
-- **A licence** for the code, and a `CONTRIBUTING.md` that points at `/contributing`. The Bible text is the
-  public-domain BSB and needs no licence.
+- **Two pages**, static files in `web/` (done 5 Oct 2026): `/about` (what the site is, where the text comes
+  from, what is stored about you and which services see what) and `/contributing` (how to run the app and
+  the local Supabase stack, the tests, how changes are reviewed). Both are linked from the account menu.
+  Changes to what is stored about people must update the about page too.
+- **A licence** for the code (MIT, `LICENSE`, done 5 Oct 2026), and a `CONTRIBUTING.md` that points at
+  `/contributing`. The Bible text is the public-domain BSB and needs no licence.
 
 ## Android and iOS
 
@@ -519,6 +519,11 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   starts a stack on every pull request and runs them, then `supabase/tests/run.sh`. Writing them found a
   race: a new collection and the verse saved into it were sent in parallel, so the item could be refused.
   Account writes now go out one after another, in order.
+- **Going public (5 Oct 2026)**: MIT `LICENSE`, `/about` and `/contributing` as static pages (served by
+  `server.js` and the build like `index.html`; Cloudflare serves `about.html` at `/about` by default), links
+  to both in the account menu, and a short `CONTRIBUTING.md`. Checked in the browser against the local
+  stack: both pages render in light and dark mode, the menu links open them (signed out by hand, signed in
+  by the first browser test), and the build copies them into `dist/`.
 - **Turnstile on the sign-in form (5 Oct 2026)**: `web/js/captcha.js`, the token passed through
   `backend.requestCode`, and `[auth.captcha]` in `config.toml` (off locally, on for the hosted project
   through `[remotes.production]`, secret from the environment). Verified against the local stack with the

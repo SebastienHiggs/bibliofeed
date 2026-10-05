@@ -13,6 +13,7 @@ test('sign in with an emailed code, stay signed in across a reload, sign out', a
   await expect(page.locator('.profile-title')).toHaveText(`@${me.username}`);
 
   await openAccountMenu(page);
+  await expect(page.locator('#settings-body a[href="/about"]')).toBeVisible(); // the site's pages are a tap away
   await page.locator('#settings-body .sign-out').click();
   await expect(page.locator('#toast')).toHaveText('Signed out');
   await expect(page.locator('.profile-bio')).toHaveText('Your activity is saved in this browser only.');
