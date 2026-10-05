@@ -22,9 +22,10 @@ let tab = 'saved';
 // The Saved tab shows one collection at a time: Saved, one of your own, or (signed in) your Library.
 let collectionId = null;   // null means Saved
 let editing = null;        // 'new' | a collection id being renamed | null
-const shown = () => activity.collections().filter((c) => c.kind !== 'likes');
+const ORDER = { library: 0, saved: 1, custom: 2 };
+const shown = () => activity.collections().filter((c) => c.kind !== 'likes').sort((a, b) => ORDER[a.kind] - ORDER[b.kind]);
 function selectedCollection() {
-  return shown().find((c) => c.id === collectionId) || shown().find((c) => c.kind === 'saved') || { id: null, kind: 'saved', name: 'Saved', count: 0 };
+  return shown().find((c) => c.id === collectionId) || shown()[0] || { id: null, kind: 'saved', name: 'Saved', count: 0 };
 }
 
 const abbrev = (name) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
@@ -67,8 +68,7 @@ function identityHtml() {
   if (who) {
     return `
       <div class="profile-name">${esc(who.displayName)}</div>
-      <div class="profile-title">@${esc(who.username)}</div>
-      <div class="profile-buttons"><button class="secondary-btn open-settings">Settings</button></div>`;
+      <div class="profile-title">@${esc(who.username)}</div>`;
   }
   if (backend.me) {
     return `
@@ -115,12 +115,6 @@ function render() {
     <header class="profile-header">
       <div class="profile-row">
         ${avatarHtml(name, { plain: true, cls: 'profile-avatar' })}
-        <div class="profile-stats">
-          <div><b>${activity.savedPosts().length}</b><span>saved</span></div>
-          <div><b>${activity.likedPosts().length}</b><span>liked</span></div>
-          <div><b>${activity.commentCount()}</b><span>${activity.commentCount() === 1 ? 'comment' : 'comments'}</span></div>
-          ${backend.signedIn() ? `<div><b>${activity.friends().length}</b><span>${activity.friends().length === 1 ? 'friend' : 'friends'}</span></div>` : ''}
-        </div>
       </div>
       ${identityHtml()}
     </header>
@@ -137,7 +131,6 @@ function render() {
   const grid = view.querySelector('#account-grid');
   const title = active === 'saved' ? selectedCollection().name : TABS[active].label;
   if (grid) posts.forEach((p, i) => grid.append(tileEl(p, () => openPosts(posts, i, { title, subtitle: name }))));
-  view.querySelector('.open-settings')?.addEventListener('click', openSettings);
   view.querySelector('.chips-form input')?.focus();
 }
 
@@ -195,18 +188,23 @@ view.addEventListener('click', (e) => {
 
 // ---------- settings sheet ----------
 
-function openSettings() {
+// The account icon in the top bar opens this while you're on your own page.
+export function openAccountMenu() {
   const who = backend.me?.profile;
-  settingsBody.innerHTML = `
+  settingsBody.innerHTML = who ? `
     <p class="settings-who">Signed in as <b>${esc(who.displayName)}</b> @${esc(who.username)}</p>
     ${activity.importable() ? '<button class="menu-item import-local">Add this browser’s activity to my account…</button>' : ''}
     <button class="menu-item sign-out">Sign out</button>
     <button class="menu-item danger delete-account">Delete account…</button>
-    <p class="hint-row">Deleting your account removes your profile and everything in it. It can’t be undone.</p>`;
+    <p class="hint-row">Deleting your account removes your profile and everything in it. It can’t be undone.</p>`
+  : `
+    <p class="settings-who">Your activity is saved in this browser only.</p>
+    ${backend.configured ? '<a class="menu-item" href="#/signin">Sign in</a>' : ''}`;
   openSheet(settingsBackdrop);
 }
 
 settingsBody.addEventListener('click', async (e) => {
+  if (e.target.closest('a')) { closeSheet(settingsBackdrop); return; }
   const btn = e.target.closest('button');
   if (!btn) return;
   try {

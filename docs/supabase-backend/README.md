@@ -292,7 +292,7 @@ tiles.
 | --- | --- |
 | `#/u/<handle>` | A Bible author's profile (unchanged) |
 | `#/@<username>` | A user's profile: display name, username, the friend button and, for friends, their Library |
-| `#/me[/tab]` | Your own private view: Likes, Saved, your collections, comments, friends and friend requests |
+| `#/me[/tab]` | Your own private view: Saved (with Library and your collections as chips, Library first), Likes, comments, friends and friend requests. The top-bar account button becomes a gear here and opens the account menu (sign in or out, import, delete). The space where counts sat is kept empty for a later reading-streak feature |
 | `#/signin` | Email, then code, then (first time) username and display name |
 
 ### Sign-in flow

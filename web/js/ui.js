@@ -73,6 +73,15 @@ export function toast(msg) {
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2200);
 }
 
+// Horizontal rows (stories, book and collection chips) scroll with a mouse
+// wheel on desktop, where there's no swipe; the vertical wheel moves them sideways.
+document.addEventListener('wheel', (e) => {
+  const row = e.target.closest('.stories, .highlights');
+  if (!row || row.scrollWidth <= row.clientWidth || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+  row.scrollLeft += e.deltaY;
+  e.preventDefault();
+}, { passive: false });
+
 export function openSheet(backdrop) {
   backdrop.hidden = false;
   document.body.style.overflow = 'hidden';

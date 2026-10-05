@@ -24,7 +24,8 @@ This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofe
 - **Library** (signed in): the Add to Library button beside the bookmark puts a verse where your friends
   can see it, on your profile.
 - **Accounts**: sign in with your email and a 6-digit code (no password), choose a username and display
-  name, and sign out or delete your account from Settings. Signed in, your likes, saves and comments belong
+  name, and sign out or delete your account from the account menu (the gear in the top bar while you're
+  on your own page). Signed in, your likes, saves and comments belong
   to your account and follow you across devices. Signed out, everything still works as before, in this
   browser only, and once you sign in the app offers to add that browser's activity to your account
   (comments optional, since friends can see them).
@@ -35,7 +36,9 @@ This app lives in `web/` of the bibliofeed monorepo. It used to be the `bibliofe
   (the summaries, first) and Comments, which shows comments on this verse and then comments elsewhere in
   the same chapter, each tagged with its verse. That way a comment on Ezra 5:10 is met from any verse of
   Ezra 5, not only when that one verse comes round. Every list shows a few entries and a Show more.
-- Double-tap to like, share/copy, infinite scroll, light/dark mode.
+- Double-tap to like, share/copy, infinite scroll, light/dark mode. Tapping the wordmark at the top of the
+  feed, or pulling down on a phone, loads a fresh feed. Horizontal rows scroll with the mouse wheel on
+  desktop.
 
 Likes, saves and comments are stored in the browser (localStorage). There are no accounts yet, so
 they don't sync between devices.

@@ -9,7 +9,7 @@ import { ALL_AUTHORS, handle, randomChapter } from './books.js';
 import { getChapter } from './bible.js';
 import { closeDetail, renderPost, skeletonHtml } from './post.js';
 import { hideProfile, showProfile } from './profile.js';
-import { hideAccount, showAccount } from './account.js';
+import { hideAccount, openAccountMenu, showAccount } from './account.js';
 import { hideSearch, showSearch } from './search.js';
 import { hideSignin, showSignin } from './signin.js';
 import { hideUser, showUser } from './user.js';
@@ -147,16 +147,56 @@ topbarBack.addEventListener('click', (e) => {
   }
 });
 
-// A link to the page you're already on scrolls to the top and closes overlays.
+// Throw the feed away and start again with fresh random verses.
+function refreshFeed() {
+  feed.innerHTML = '';
+  feedScroll = 0;
+  window.scrollTo({ top: 0 });
+  loadMore();
+}
+
+// A link to the page you're already on scrolls to the top and closes overlays;
+// at the top of the feed it refreshes instead. On your own page, the account
+// button opens your account menu.
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href^="#/"]');
   if (!a) return;
+  if (a.dataset.nav === 'me' && current === 'me') {
+    e.preventDefault();
+    openAccountMenu();
+    return;
+  }
   const same = a.getAttribute('href') === location.hash || (a.getAttribute('href') === '#/' && !location.hash);
   if (!same) return;
   e.preventDefault();
   closeAllSheets();
   closeDetail();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (current === 'feed' && window.scrollY < 40) refreshFeed();
+  else window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Pull down at the top of the feed to refresh it (touch only; the indicator
+// grows as you pull and the feed reloads if you let go past the threshold).
+const pullIndicator = document.getElementById('pull-refresh');
+const PULL_THRESHOLD = 70;
+let pullStart = null;
+document.addEventListener('touchstart', (e) => {
+  const blocked = document.querySelector('.sheet-backdrop:not([hidden])') || !document.getElementById('post-detail').hidden;
+  pullStart = current === 'feed' && window.scrollY === 0 && !blocked ? e.touches[0].clientY : null;
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  if (pullStart == null) return;
+  const dy = e.touches[0].clientY - pullStart;
+  pullIndicator.style.height = `${Math.min(Math.max(dy, 0) / 2, 56)}px`;
+  pullIndicator.classList.toggle('ready', dy > PULL_THRESHOLD);
+}, { passive: true });
+document.addEventListener('touchend', () => {
+  if (pullStart == null) return;
+  const ready = pullIndicator.classList.contains('ready');
+  pullIndicator.style.height = '';
+  pullIndicator.classList.remove('ready');
+  pullStart = null;
+  if (ready) refreshFeed();
 });
 
 document.querySelectorAll('.sheet-backdrop').forEach((bd) => {
