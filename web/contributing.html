@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Contributing to Bibliofeed</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="How to run Bibliofeed and its local backend, and how changes are reviewed.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="topbar-back" href="/"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Bibliofeed</span></a>
+      <nav class="page-nav"><a href="/about">About</a></nav>
+    </div>
+  </header>
+
+  <main class="page-body">
+    <h1>Contributing</h1>
+    <p class="lede">Bibliofeed is a small, open-source project: a static web app with no framework and a Supabase
+      database behind it. The code is at
+      <a href="https://github.com/SebastienHiggs/bibliofeed" rel="noopener">github.com/SebastienHiggs/bibliofeed</a>
+      under the MIT licence. Bug reports, fixes and careful improvements are welcome.</p>
+
+    <h2>What it's made of</h2>
+    <ul>
+      <li><b><code>web/</code></b>: the site. Plain HTML, CSS and JavaScript modules, served as static files by
+        Cloudflare. <code>js/app.js</code> is the feed and routing, <code>js/post.js</code> a post,
+        <code>js/activity.js</code> your likes, saves and comments, <code>js/backend.js</code> the only module
+        that talks to Supabase.</li>
+      <li><b><code>data/bsb/</code></b>: the Berean Standard Bible, one JSON file per book, committed so builds
+        need no network.</li>
+      <li><b><code>supabase/</code></b>: the database as migrations (five tables, a few functions, and the
+        row-level security rules that decide who may see what), its tests, and the local stack's settings.</li>
+      <li><b><code>docs/supabase-backend/README.md</code></b>: the plan behind the accounts and friends
+        features, the decisions taken and why, and a log of what was verified. Read it before changing the
+        backend or anything that touches it.</li>
+    </ul>
+
+    <h2>Running the app</h2>
+    <p>You need Node.js 22 or later. Signed out, the app has no backend to run:</p>
+    <pre><code>cd web
+npm install     # once
+npm start       # http://localhost:8080</code></pre>
+
+    <h2>Running the backend locally</h2>
+    <p>Accounts, friends and syncing use Supabase. Contributors run their own copy of it, never the live one:
+      the hosted project belongs to the site's owner, and nothing in the repository gives anyone else access to
+      it (the project URL and key in <code>js/config.js</code> are public by design; the database's access rules
+      are the protection). With Docker running:</p>
+    <pre><code>npx supabase start            # at the repository root; prints the local URL and key</code></pre>
+    <p>Put the <b>API URL</b> and <b>publishable key</b> it prints into <code>web/js/config.local.js</code>,
+      which is ignored by git and served in place of <code>config.js</code> while developing:</p>
+    <pre><code>export const SUPABASE_URL = 'http://127.0.0.1:54341';
+export const SUPABASE_KEY = 'sb_publishable_…';
+export const TURNSTILE_SITE_KEY = '';</code></pre>
+    <p>Sign-in codes arrive in the local mail catcher at <code>http://127.0.0.1:54344</code>. The sign-in form's
+      bot check is off locally; <code>supabase/config.toml</code> explains how to try it with Cloudflare's test
+      keys. <code>npx supabase db reset</code> gives you a clean database; <code>npx supabase stop</code> stops
+      the stack.</p>
+
+    <h2>Tests</h2>
+    <ul>
+      <li><b>Browser tests</b>: <code>npm test</code> in <code>web/</code> (Playwright; run
+        <code>npx playwright install chromium</code> once) walks through signing in, syncing, friends, importing
+        and deleting an account against the local stack.</li>
+      <li><b>Access-rule tests</b>: <code>sh supabase/tests/run.sh</code> resets the local database and checks
+        that every rule does what the plan says. Change a policy, add a check.</li>
+    </ul>
+    <p>Both run on every pull request.</p>
+
+    <h2>How changes are reviewed</h2>
+    <ul>
+      <li>Work on a branch and open a <b>pull request into <code>main</code></b>; nothing is pushed to
+        <code>main</code> directly. The owner reviews every pull request, and the tests must pass.</li>
+      <li>Keep changes <b>small and focused</b>, with commit messages that say why. Say what you checked in the
+        browser or the database; the project's habit is to verify each piece against the local stack.</li>
+      <li>The project prefers <b>simple and maintainable over feature-rich</b>: no server code, no analytics, no
+        placeholders for features that don't exist yet. Store only what the app needs, and never anything that
+        would identify people to each other beyond their username and display name.</li>
+      <li>Changes to the database go in a <b>new migration</b> under <code>supabase/migrations/</code>, with
+        the plan document updated to match. Changes to what is stored about people also need the
+        <a href="/about">about page</a> updated.</li>
+      <li>Not sure whether something fits? Open an issue first; it saves everyone time.</li>
+    </ul>
+
+    <h2>Licence</h2>
+    <p>The code is MIT-licensed; by contributing you agree your contribution is too. The Bible text is the
+      public-domain Berean Standard Bible and the commentary summaries are excerpts of public-domain works, so
+      neither needs a licence from us.</p>
+  </main>
+</body>
+</html>

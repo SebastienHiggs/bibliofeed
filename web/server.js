@@ -29,6 +29,8 @@ http.createServer(async (req, res) => {
   if (SOURCE_ONLY && rel.startsWith('/data/bsb/')) { base = DATA; rel = rel.slice('/data'.length); }
   let path = normalize(join(base, rel));
   if (!path.startsWith(base)) return res.writeHead(403).end();
+  // /about serves about.html, as Cloudflare does for static assets.
+  if (!extname(path) && existsSync(`${path}.html`)) path = `${path}.html`;
   try {
     const body = await readFile(path);
     res.writeHead(200, { 'Content-Type': types[extname(path)] || 'application/octet-stream' });

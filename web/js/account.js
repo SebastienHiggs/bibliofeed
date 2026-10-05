@@ -200,6 +200,10 @@ export function openAccountMenu() {
   : `
     <p class="settings-who">Your activity is saved in this browser only.</p>
     ${backend.configured ? '<a class="menu-item" href="#/signin">Sign in</a>' : ''}`;
+  // The two pages about the site itself: what it is and stores, and how to help.
+  settingsBody.innerHTML += `
+    <a class="menu-item" href="/about">About Bibliofeed</a>
+    <a class="menu-item" href="/contributing">Contributing</a>`;
   openSheet(settingsBackdrop);
 }
 

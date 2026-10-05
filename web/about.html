@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>About Bibliofeed</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="What Bibliofeed is, where its text comes from, and what it stores about you.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="topbar-back" href="/"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Bibliofeed</span></a>
+      <nav class="page-nav"><a href="/contributing">Contributing</a></nav>
+    </div>
+  </header>
+
+  <main class="page-body">
+    <h1>About Bibliofeed</h1>
+    <p class="lede">A feed where every post is a Bible verse, chosen at random from the whole Bible. No algorithm, no
+      ads, no tracking. Scroll, read the chapter around a verse, keep the ones that stay with you, and, if you
+      like, share your notes with friends.</p>
+
+    <h2>How it works</h2>
+    <p>Each post is one verse. Swipe the card to read the rest of its chapter with the verse highlighted. Below it
+      are short summaries from public-domain commentaries, with links to the full text, and a place for your own
+      comments. Tap an author's name for their books and a grid of verses from them, or use Search to jump to a
+      reference like <i>John 3:16</i>.</p>
+    <p>The feed picks a chapter at random (all 1,189 are equally likely) and then a verse from it, so verses in
+      short chapters come round a little more often than those in long ones. There is no feed ranking of any
+      kind: nothing you do changes what you're shown.</p>
+
+    <h2>Where the text comes from</h2>
+    <ul>
+      <li><b>Scripture</b> is the <a href="https://berean.bible" rel="noopener">Berean Standard Bible</a> (BSB),
+        which is in the public domain. The whole text is served with the site, so pages don't fetch it from
+        anyone else.</li>
+      <li><b>Commentary summaries</b> are excerpts of public-domain works: Matthew Henry, John Gill, Adam Clarke,
+        Jamieson-Fausset-Brown, Keil &amp; Delitzsch and the Tyndale Open Study Notes. They're fetched, when you
+        open a post's comments, from the <a href="https://bible.helloao.org" rel="noopener">Free Use Bible API</a>,
+        with links out to Bible Hub, StudyLight and Enduring Word for more.</li>
+      <li><b>Authors and dates</b> on posts are the traditional attributions (Moses for the Torah, David for most
+        psalms, and so on), with rough traditional dates. Many books are anonymous and scholars disagree on
+        several; treat them as a way in, not a verdict.</li>
+    </ul>
+
+    <h2>What is stored about you</h2>
+    <p><b>Signed out</b>, nothing leaves your browser. Your likes, saves, collections and comments are kept in
+      this browser's storage as verse references (<i>John 3:16</i>, not the text), and the site has no accounts,
+      analytics or tracking of any kind. Clearing the site's data removes them.</p>
+    <p><b>Signed in</b>, your account holds exactly what the app needs and no more:</p>
+    <ul>
+      <li>your <b>email address</b>, used only to send you sign-in codes; it is never shown to anyone;</li>
+      <li>a <b>username</b> and <b>display name</b>, which other signed-in people can find by searching;</li>
+      <li>your <b>likes, saves, collections, Library and comments</b>, as verse references with the time you
+        added them, and your <b>friendships</b>.</li>
+    </ul>
+    <p>Who sees what: your Library and your comments are visible to your friends (people who asked, or whom you
+      asked, and the other accepted). Likes, Saved and your own collections are private. Friendships are visible
+      only to the two people in them. These rules are enforced in the database itself, not just in the app.</p>
+    <p>There is no password. Signing in emails you a six-digit code. <b>Delete account</b>, in the account menu,
+      removes your account and everything in it immediately.</p>
+
+    <h3>Services involved</h3>
+    <ul>
+      <li>The site is served by <b>Cloudflare</b>. Its <b>Turnstile</b> check runs on the sign-in form, so the
+        code-email endpoint can't be used to spam addresses; it normally needs nothing from you.</li>
+      <li>Accounts live in a <b>Supabase</b> project (a hosted Postgres database) that the app talks to
+        directly from your browser. Like most sign-in systems, it keeps the IP address of each sign-in in its
+        logs for a while.</li>
+      <li>Sign-in codes are emailed through <b>Resend</b>, which therefore handles your email address.</li>
+      <li>Fonts load from <b>Google Fonts</b>, and commentary from the <b>Free Use Bible API</b>, both of
+        which see the request like any web server would.</li>
+    </ul>
+    <p>Nothing is sold, shared for marketing, or used to build a profile of you.</p>
+
+    <h2>Open source</h2>
+    <p>Bibliofeed is open source under the MIT licence:
+      <a href="https://github.com/SebastienHiggs/bibliofeed" rel="noopener">github.com/SebastienHiggs/bibliofeed</a>.
+      The <a href="/contributing">contributing page</a> explains how to run it yourself and how changes are
+      reviewed. Questions, mistakes and ideas are welcome as issues there.</p>
+  </main>
+</body>
+</html>
