@@ -186,6 +186,8 @@ John 3:16), then times each query the app makes as one of those users. On a lapt
 Every figure depends on the user's own data and friend count, not the number of users, so the same shape
 holds at a million. Rerun it after changing any policy or index. (Measured on plain Postgres 16.)
 
+The browser tests in `web/e2e/` exercise the app against this schema end to end; see `web/README.md`.
+
 ### Testing backend changes locally
 
 Supabase's hosted branching is a paid feature, so every change is tried on a local copy first. The local
@@ -509,6 +511,14 @@ From the review of 3–4 Oct 2026, with a target of a million users:
   fresh ids; original timestamps are kept; the browser remembers it has imported (or declined). Verified
   on the local stack. **All six build steps are done**; what remains is the hosted project, the
   `config.js` values, and the open-source housekeeping listed above.
+- **Browser tests (5 Oct 2026)**: seven Playwright tests in `web/e2e/` (`npm test`) against the local
+  stack: sign in by code read from Mailpit's API, reload and sign out; likes, saves and comments back from
+  the account after a reload; a friend request found through People search and accepted on the Friends
+  tab; a friend's comment in the comments sheet; the signed-out import; a new collection; and deleting
+  the account, after which the same email is asked for a username again. `.github/workflows/tests.yml`
+  starts a stack on every pull request and runs them, then `supabase/tests/run.sh`. Writing them found a
+  race: a new collection and the verse saved into it were sent in parallel, so the item could be refused.
+  Account writes now go out one after another, in order.
 - **Turnstile on the sign-in form (5 Oct 2026)**: `web/js/captcha.js`, the token passed through
   `backend.requestCode`, and `[auth.captcha]` in `config.toml` (off locally, on for the hosted project
   through `[remotes.production]`, secret from the environment). Verified against the local stack with the

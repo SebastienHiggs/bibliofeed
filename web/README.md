@@ -61,6 +61,20 @@ npm start              # serves the source
 npm run build && npm run preview   # serves the built dist/
 ```
 
+## Tests
+
+`npm test` in `web/` runs the browser tests in `e2e/` (Playwright, Chromium) against the local Supabase
+stack: signing in with a code read from the mail catcher, likes, saves and comments coming back from the
+account after a reload, a friend request and accept between two accounts, a friend's comment in the
+comments sheet, importing a browser's signed-out activity, saving into a new collection, and deleting
+the account. It needs the stack running (`npx supabase start` at the repo root) and `js/config.local.js`
+pointing at it (above); the first run also needs `npx playwright install chromium`. The tests make their
+own throwaway accounts, so they can run against a stack you also develop on. They're a safety net for
+contributors, not a full test suite: the database's access rules have their own tests in
+[`../supabase/tests/`](../supabase/tests/).
+
+Both sets run on every pull request (`.github/workflows/tests.yml` starts a stack on the runner).
+
 ## Accounts and the backend
 
 Accounts, friends and syncing use Supabase, called straight from the browser; the database's row-level
@@ -122,7 +136,8 @@ build command and root directory. Every push to another branch then gets its own
 | `js/backend.js`, `js/config.js` | Talking to Supabase (sign-in, your profile), and where it lives |
 | `js/captcha.js` | The Turnstile bot check on the sign-in form (only when `config.js` has a site key) |
 | `scripts/build.mjs` | Builds `dist/` from the source, `node_modules` (supabase-js) and `../data/bsb/` |
-| `server.js` | Zero-dependency static server for local development |
+| `server.js` | Zero-dependency static server for local development (serves the Bible text from `../data/bsb/` too) |
+| `e2e/`, `playwright.config.js` | The browser tests (`npm test`), see Tests above |
 | `wrangler.jsonc` | Cloudflare config: serve `dist/` as static assets |
 
 ## Ideas for later
