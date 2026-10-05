@@ -439,13 +439,14 @@ additional_redirect_urls = ["https://bibliofeed.net"]
 # One code email per address per minute; locally it's 1s so tests can resend.
 max_frequency = "1m0s"
 
-# Sign-in emails go out through Resend once its DNS records are verified.
+# Sign-in emails go out through Resend. Supabase's own mailer can't send our
+# code template (free tier), so this must be in place before anyone signs in.
 # Set RESEND_API_KEY in the shell that runs `supabase config push`.
-# [remotes.production.auth.email.smtp]
-# enabled = true
-# host = "smtp.resend.com"
-# port = 465
-# user = "resend"
-# pass = "env(RESEND_API_KEY)"
-# admin_email = "hello@bibliofeed.net"
-# sender_name = "Bibliofeed"
+[remotes.production.auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "hello@bibliofeed.net"
+sender_name = "Bibliofeed"
