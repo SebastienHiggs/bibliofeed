@@ -77,7 +77,7 @@ rest of the UI calls them directly. `onChange(fn)` notifies views when anything 
 | **Supabase, called straight from the browser.** No server code, no Edge Functions. Postgres row-level security (RLS) decides who can see what. | Least code to maintain. The site stays static files on Cloudflare. | A Worker API in front of the database: more code, nothing gained. |
 | **Sign-in is email plus a 6-digit code only.** | No passwords. The same flow works on web, Android and iOS with no deep links. No third-party sign-in means Apple doesn't require Sign in with Apple. | Google/Facebook/Apple sign-in (complexity, and Apple's rule). Magic links (unreliable inside mobile apps). |
 | **A profile is only a username and a display name.** Email stays in Supabase's `auth.users` and is never shown to anyone. | Privacy. | Bios, avatars and other fields now. Add them when profile customisation is built. |
-| **Usernames are `[a-z0-9_]{3,20}`.** Reserved: the app's routes and words, names people would assume are the site or its staff, technical words, and names whose use would be impersonation or in poor taste (about 200, in `supabase/migrations/20261005120000_reserved_usernames.sql`). Bible authors are not reserved. | User profiles live at `#/@username` and author profiles at `#/u/<handle>`, so the routes can't be confused and a real John can be `@john`. | Reserving every Bible author's handle: a second copy of the list in `books.js`, and a migration every time it changes. |
+| **Usernames are `[a-z0-9_]{3,20}`.** Reserved: the app's routes and words, names people would assume are the site or its staff, technical words, names whose use would be impersonation or in poor taste (about 200, in `supabase/migrations/20261005120000_reserved_usernames.sql`), and the 37 Bible author handles (`…130000_reserve_author_names.sql`). | So a comment can't look as if it came from Paul. The author list is a copy of `handle()` over `books.js`; the test runner fails if the two drift apart. | Leaving authors available (a real John as `@john`): the owner first chose this, then reversed it on 5 Oct 2026. |
 | **Friends only. Following is removed entirely**, including following Bible authors. | Following another user felt wrong to the owner, and following authors added little. | One-way follows. |
 | **The feed is fully random, as if you followed every author**: a random chapter (all 1,189 equally likely), then a random verse in it. This is what the app does today without follows. | The owner confirmed chapter-first is right. Verses in short chapters come up more often; that's accepted. | Every verse equally likely. Every book equally likely. |
 | **Friends' library items appear only on their profiles**, never in the main feed. | Keeps the feed purely Bible verses. | |
@@ -447,7 +447,7 @@ two: `delete_my_account()` deletes from `auth.users` as intended, and new projec
 1. **The library button says "Add to Library".** (Alternatives considered: Collect, Shelve, Treasure.)
 2. **Profiles are visible to every signed-in user**, with the friend button on them, and people are found
    through the search view by username or display name.
-3. **Bible author names are not reserved** as usernames.
+3. **Bible author names are reserved** as usernames (decided 5 Oct 2026, reversing the first decision).
 
 ## Changes since the first draft
 
@@ -460,7 +460,8 @@ From the review of 3–4 Oct 2026, with a target of a million users:
 - **Comments index** changed to `(user_id, book, chapter, verse)`, replacing the verse-only and user-only
   indexes, and the app is required to always name the users whose comments it wants.
 - **Grants spelled out** instead of revoking from project defaults. One "thing to verify" removed.
-- **Bible author handles are no longer reserved usernames.** Only app and system names are.
+- **Reserved usernames** went from six words to about 200, and on 5 Oct the owner reversed the earlier
+  call and reserved the 37 Bible author handles too; the test runner checks that list against `books.js`.
 - **People search** added (`search_profiles()` over trigram indexes) and the **friend button's four
   states** specified, at the owner's request.
 - **Open source**: how contributors test locally, the `main` branch rule, and the about and contributing

@@ -13,6 +13,17 @@
 set -e
 cd "$(dirname "$0")"
 
+# The reserved author usernames in the migration must match the handles the app
+# derives from web/js/books.js; otherwise an author's handle could be taken.
+node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  import { ALL_AUTHORS, handle } from "../../web/js/books.js";
+  const sql = readFileSync("../migrations/20261005130000_reserve_author_names.sql", "utf8");
+  const missing = [...new Set(ALL_AUTHORS.map(handle))].filter((h) => !sql.includes(`\x27${h}\x27`));
+  if (missing.length) { console.error("Author handles not reserved in the migration:", missing.join(", ")); process.exit(1); }
+  console.log("ok: every author handle is a reserved username");
+'
+
 # Keeps only the headings and timings of scale.sql's output.
 summarise() { grep -E '^--|^ [a-z]|Execution Time|rows=[0-9]+ loops=1\)$' | grep -vE '^\s+->'; }
 
